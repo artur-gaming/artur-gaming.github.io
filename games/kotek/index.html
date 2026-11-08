@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kotek na Ulicy - Gra Zręcznościowa</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: radial-gradient(circle at center, #1e293b, #0f172a);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #f8fafc;
+      overflow-x: hidden;
+      padding: 10px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hud {
+      display: flex;
+      gap: 20px;
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 10px 24px;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge {
+      background: #334155;
+      padding: 2px 10px;
+      border-radius: 20px;
+      color: #38bdf8;
+    }
+
+    #game-container {
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #334155;
+    }
+
+    canvas {
+      display: block;
+      background-color: #222;
+    }
+
+    /* Overlay dla menu i końca gry */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(5px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      text-align: center;
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay h2 {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+    }
+
+    .overlay p {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      max-width: 380px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(234, 88, 12, 0.6);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Przyciski sterowania dla urządzeń mobilnych */
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 58px);
+      grid-gap: 8px;
+      margin-top: 14px;
+    }
+
+    .ctrl-btn {
+      width: 58px;
+      height: 52px;
+      background: #334155;
+      border: 1px solid #475569;
+      color: white;
+      font-size: 1.4rem;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .ctrl-btn:active {
+      background: #f97316;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🐾 Kotek Przechodzi Przez Ulicę 🚗</h1>
+
+  <div class="hud">
+    <div class="hud-item">❤️ Życia: <span id="lives" class="badge">3</span></div>
+    <div class="hud-item">🏆 Punkty: <span id="score" class="badge">0</span></div>
+    <div class="hud-item">⚡ Poziom: <span id="level" class="badge">1</span></div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="480" height="560"></canvas>
+
+    <div id="startScreen" class="overlay">
+      <h2>Przygoda Kotka</h2>
+      <p>Pomóż kotkowi bezpiecznie przejść przez ruchliwą ulicę na drugą stronę trawnika!</p>
+      <p style="font-size: 0.95rem; color: #cbd5e1;">Zbieraj rybki 🐟 po drodze dla dodatkowych punktów!</p>
+      <button class="btn" id="startBtn">Rozpocznij grę</button>
+    </div>
+
+    <div id="gameOverScreen" class="overlay hidden">
+      <h2 style="color: #ef4444;">Koniec Gry! 😿</h2>
+      <p>Kotek stracił wszystkie życia.</p>
+      <p>Twój wynik: <strong id="finalScore" style="color: #f59e0b; font-size: 1.4rem;">0</strong></p>
+      <button class="btn" id="restartBtn">Zagraj ponownie</button>
+    </div>
+
+    <div id="winScreen" class="overlay hidden">
+      <h2 style="color: #10b981;">Gratulacje! 😺🎉</h2>
+      <p>Bezpiecznie dotarłeś na drugą stronę!</p>
+      <button class="btn" id="nextLevelBtn">Kolejny poziom ➡️</button>
+    </div>
+  </div>
+
+  <!-- Przyciski ekranowe dla wygody / telefonu -->
+  <div class="controls">
+    <div></div>
+    <button class="ctrl-btn" id="btnUp">⬆️</button>
+    <div></div>
+    <button class="ctrl-btn" id="btnLeft">⬅️</button>
+    <button class="ctrl-btn" id="btnDown">⬇️</button>
+    <button class="ctrl-btn" id="btnRight">➡️</button>
+  </div>
+
+  <div class="hint">Sterowanie: Strzałki na klawiaturze, klawisze WASD lub przyciski na ekranie</div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Elementy UI
+    const livesEl = document.getElementById('lives');
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const winScreen = document.getElementById('winScreen');
+    const finalScoreEl = document.getElementById('finalScore');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const nextLevelBtn = document.getElementById('nextLevelBtn');
+
+    // Konfiguracja planszy i pasów ruchu
+    const CANVAS_WIDTH = canvas.width;
+    const CANVAS_HEIGHT = canvas.height;
+    const GRID_SIZE = 40; // Wysokość kroku / pasa
+
+    let gameState = 'START'; // 'START', 'PLAYING', 'GAMEOVER', 'LEVEL_COMPLETE'
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let highestYReached = 0;
+
+    // Rozmiary planszy i siatki (krok = 70px)
+    // Pozycje pionowe kotka (y):
+    // y = 490: Start (dolny trawnik)
+    // y = 420: Pas 4
+    // y = 350: Pas 3
+    // y = 280: Środkowy chodnik / pas zieleni (BEZPIECZNY!)
+    // y = 210: Pas 2
+    // y = 140: Pas 1
+    // y = 70 : Meta (górny trawnik)
+    const STEP_Y = 70;
+
+    // Kotek
+    const cat = {
+      width: 44,
+      height: 44,
+      stepX: 50,
+      stepY: STEP_Y,
+      facing: 'up',
+      color: '#f97316',
+      reset() {
+        this.x = CANVAS_WIDTH / 2 - this.width / 2;
+        this.y = 490 + 13; // na dolnym trawniku (490-560)
+        this.facing = 'up';
+        highestYReached = this.y;
+      }
+    };
+    cat.reset();
+
+    // Dokładnie 4 pasy ruchu (wysokość każdego pasa to 70px):
+    // Pas 1: y = 140 .. 210 (jazda w prawo)
+    // Pas 2: y = 210 .. 280 (jazda w lewo)
+    // [ŚRODKOWY CHODNIK]: y = 280 .. 350 (strefa całkowicie wolna od aut)
+    // Pas 3: y = 350 .. 420 (jazda w prawo)
+    // Pas 4: y = 420 .. 490 (jazda w lewo)
+    const lanes = [
+      { y: 140, height: 70, speed: 2.3, dir: 1, type: 'car', color: '#ef4444', len: 72 },
+      { y: 210, height: 70, speed: 3.1, dir: -1, type: 'truck', color: '#06b6d4', len: 100 },
+      { y: 350, height: 70, speed: 2.6, dir: 1, type: 'truck', color: '#f59e0b', len: 95 },
+      { y: 420, height: 70, speed: 3.4, dir: -1, type: 'car', color: '#a855f7', len: 70 }
+    ];
+
+    let vehicles = [];
+    let fishes = [];
+
+    // Generator pojazdów
+    function initVehicles() {
+      vehicles = [];
+      lanes.forEach(lane => {
+        const speedMultiplier = 1 + (level - 1) * 0.18;
+        const count = 2; // Samochody na każdym pasie
+        const spacing = CANVAS_WIDTH / count;
+
+        for (let i = 0; i < count; i++) {
+          vehicles.push({
+            x: i * spacing + Math.random() * 50,
+            y: lane.y + 16, // wewnątrz pasa 70px (wysokość auta 38px, bezpieczny margines)
+            width: lane.len,
+            height: 38,
+            speed: lane.speed * lane.dir * speedMultiplier,
+            color: lane.color,
+            type: lane.type
+          });
+        }
+      });
+    }
+
+    // Generator bonusowych rybek
+    function spawnFishes() {
+      fishes = [];
+      // Bezpieczne miejsca: trawnik u góry i środkowy chodnik
+      const safeYPositions = [85, 298];
+      for (let i = 0; i < 3; i++) {
+        const targetY = safeYPositions[Math.floor(Math.random() * safeYPositions.length)];
+        fishes.push({
+          x: 40 + Math.random() * (CANVAS_WIDTH - 80),
+          y: targetY,
+          width: 28,
+          height: 28,
+          collected: false
+        });
+      }
+    }
+
+    // Dźwięki syntetyczne za pomocą Web Audio API
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        const now = ctx.currentTime;
+        if (type === 'jump') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(540, now + 0.08);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'hit') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.linearRampToValueAtTime(40, now + 0.25);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (type === 'fish') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(580, now);
+          osc.frequency.setValueAtTime(880, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'win') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(554.37, now + 0.1);
+          osc.frequency.setValueAtTime(659.25, now + 0.2);
+          osc.frequency.setValueAtTime(880, now + 0.3);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+          osc.start(now);
+          osc.stop(now + 0.5);
+        }
+      } catch (e) {
+        // audio might be blocked before user gesture
+      }
+    }
+
+    // Rysowanie otoczenia (trawniki z kwiatami, szczegółowe 4 pasy jezdni, pasy dla pieszych, studzienki i chodnik)
+    function drawEnvironment() {
+      // 1. Trawa u góry (Meta): y: 0 - 140
+      const topGrassGrad = ctx.createLinearGradient(0, 0, 0, 140);
+      topGrassGrad.addColorStop(0, '#14532d');
+      topGrassGrad.addColorStop(1, '#15803d');
+      ctx.fillStyle = topGrassGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, 140);
+      drawGrassDetails(0, 140);
+
+      // Szachownica mety i baner
+      drawCheckerboard(115, 8);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      ctx.beginPath();
+      ctx.roundRect(CANVAS_WIDTH / 2 - 140, 14, 280, 30, 15);
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏁 META - BEZPIECZNY TRAWNIK 🏁', CANVAS_WIDTH / 2, 34);
+      ctx.textAlign = 'start';
+
+      // 2. Górna jezdnia: Pas 1 i Pas 2 (y: 140 - 280)
+      drawRoadSurface(140, 140);
+
+      // Górny krawężnik z płytami biało-czerwonymi
+      drawCurb(134, 6);
+
+      // Strzałki kierunkowe na pasach 1 i 2
+      drawLaneArrow(110, 175, 1);
+      drawLaneArrow(350, 175, 1);
+      drawLaneArrow(130, 245, -1);
+      drawLaneArrow(370, 245, -1);
+
+      // Studzienka kanalizacyjna na górnej jezdni
+      drawManhole(235, 192);
+
+      // Przerywana linia dzieląca Pas 1 i Pas 2 (y = 210)
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 16]);
+      ctx.beginPath();
+      ctx.moveTo(0, 210);
+      ctx.lineTo(CANVAS_WIDTH, 210);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 3. Środkowy chodnik / wysepka bezpieczeństwa (y: 280 - 350, pełne 70px)
+      drawCurb(276, 5);
+
+      // Płyty chodnikowe z fugami
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(0, 280, CANVAS_WIDTH, 70);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < CANVAS_WIDTH; x += 24) {
+        ctx.beginPath();
+        ctx.moveTo(x, 280);
+        ctx.lineTo(x, 350);
+        ctx.stroke();
+      }
+
+      // Pas zieleni i rabatka kwiatowa na środku chodnika
+      ctx.fillStyle = '#166534';
+      ctx.beginPath();
+      ctx.roundRect(10, 290, CANVAS_WIDTH - 20, 50, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#86efac';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      drawGrassDetails(290, 50);
+
+      // Oznaczenie strefy bezpiecznej
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      ctx.beginPath();
+      ctx.roundRect(CANVAS_WIDTH / 2 - 115, 302, 230, 24, 12);
+      ctx.fill();
+      ctx.fillStyle = '#dcfce7';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🌿 WYSPA BEZPIECZEŃSTWA 🌿', CANVAS_WIDTH / 2, 318);
+      ctx.textAlign = 'start';
+
+      // Krawężnik pod wysepką
+      drawCurb(349, 5);
+
+      // 4. Dolna jezdnia: Pas 3 i Pas 4 (y: 350 - 490)
+      drawRoadSurface(350, 140);
+
+      // Strzałki kierunkowe na pasach 3 i 4
+      drawLaneArrow(110, 385, 1);
+      drawLaneArrow(350, 385, 1);
+      drawLaneArrow(130, 455, -1);
+      drawLaneArrow(370, 455, -1);
+
+      // Studzienka kanalizacyjna na dolnej jezdni
+      drawManhole(265, 438);
+
+      // Przerywana linia dzieląca Pas 3 i Pas 4 (y = 420)
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 16]);
+      ctx.beginPath();
+      ctx.moveTo(0, 420);
+      ctx.lineTo(CANVAS_WIDTH, 420);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dolny krawężnik jezdni
+      drawCurb(489, 6);
+
+      // 5. Start na dole (Trawa): y: 490 - 560
+      const botGrassGrad = ctx.createLinearGradient(0, 490, 0, 560);
+      botGrassGrad.addColorStop(0, '#15803d');
+      botGrassGrad.addColorStop(1, '#14532d');
+      ctx.fillStyle = botGrassGrad;
+      ctx.fillRect(0, 490, CANVAS_WIDTH, 70);
+      drawGrassDetails(490, 70);
+    }
+
+    // Rysowanie tekstury asfaltu i subtelnego przejścia dla pieszych w tle
+    function drawRoadSurface(yStart, height) {
+      const roadGrad = ctx.createLinearGradient(0, yStart, 0, yStart + height);
+      roadGrad.addColorStop(0, '#1e293b');
+      roadGrad.addColorStop(0.5, '#263346');
+      roadGrad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = roadGrad;
+      ctx.fillRect(0, yStart, CANVAS_WIDTH, height);
+
+      // Linie krawędziowe jezdni (żółte)
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.5)';
+      ctx.fillRect(0, yStart + 3, CANVAS_WIDTH, 2);
+      ctx.fillRect(0, yStart + height - 5, CANVAS_WIDTH, 2);
+
+      // Subtelne pasy przejścia dla pieszych pośrodku (zebra)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let py = yStart + 8; py < yStart + height - 8; py += 14) {
+        ctx.fillRect(CANVAS_WIDTH / 2 - 28, py, 56, 7);
+      }
+    }
+
+    // Rysowanie krawężnika z podziałem na kostki
+    function drawCurb(y, h) {
+      for (let x = 0; x < CANVAS_WIDTH; x += 20) {
+        ctx.fillStyle = (x / 20) % 2 === 0 ? '#cbd5e1' : '#94a3b8';
+        ctx.fillRect(x, y, 20, h);
+      }
+    }
+
+    // Linia mety (szachownica)
+    function drawCheckerboard(y, h) {
+      const size = 12;
+      for (let x = 0; x < CANVAS_WIDTH; x += size) {
+        ctx.fillStyle = (x / size) % 2 === 0 ? 'rgba(255,255,255,0.65)' : 'rgba(15,23,42,0.65)';
+        ctx.fillRect(x, y, size, h / 2);
+        ctx.fillStyle = (x / size) % 2 === 0 ? 'rgba(15,23,42,0.65)' : 'rgba(255,255,255,0.65)';
+        ctx.fillRect(x, y + h / 2, size, h / 2);
+      }
+    }
+
+    // Strzałki kierunkowe namalowane na asfalcie
+    function drawLaneArrow(x, y, dir) {
+      ctx.save();
+      ctx.translate(x, y);
+      if (dir < 0) ctx.scale(-1, 1);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.beginPath();
+      ctx.moveTo(-18, -4);
+      ctx.lineTo(4, -4);
+      ctx.lineTo(4, -10);
+      ctx.lineTo(18, 0);
+      ctx.lineTo(4, 10);
+      ctx.lineTo(4, 4);
+      ctx.lineTo(-18, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Studzienka kanalizacyjna na drodze
+    function drawManhole(x, y) {
+      ctx.save();
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y - 3); ctx.lineTo(x + 6, y - 3);
+      ctx.moveTo(x - 6, y + 3); ctx.lineTo(x + 6, y + 3);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Kępki trawy i kolorowe kwiatki na trawnikach
+    function drawGrassDetails(yStart, height) {
+      for (let x = 16; x < CANVAS_WIDTH - 10; x += 28) {
+        // Kępka trawy
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const gy = yStart + 18 + (x % 3) * 8;
+        if (gy < yStart + height - 6) {
+          ctx.moveTo(x, gy); ctx.lineTo(x - 4, gy - 6);
+          ctx.moveTo(x, gy); ctx.lineTo(x, gy - 8);
+          ctx.moveTo(x, gy); ctx.lineTo(x + 4, gy - 6);
+          ctx.stroke();
+        }
+
+        // Drobne kwiatki co kilka kępek
+        if (x % 56 === 16 && yStart + height - yStart >= 50) {
+          const fy = yStart + height - 16 - (x % 2) * 14;
+          const fx = x + 10;
+          ctx.fillStyle = (x % 3 === 0) ? '#f472b6' : '#facc15';
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+            ctx.beginPath();
+            ctx.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(fx, fy, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Rysowanie kotka z detalami (łapki, obroża z dzwoneczkiem, błysk w oku, ruchomy ogon)
+    function drawCat(x, y, facing) {
+      ctx.save();
+      const time = performance.now() * 0.006;
+      const tailWag = Math.sin(time) * 4;
+
+      ctx.translate(x + 22, y + 22);
+
+      // Obrót w stronę poruszania się
+      if (facing === 'down') ctx.rotate(Math.PI);
+      else if (facing === 'left') ctx.rotate(-Math.PI / 2);
+      else if (facing === 'right') ctx.rotate(Math.PI / 2);
+
+      // Cień pod kotkiem
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 16, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ogon z pręgami (animowany)
+      ctx.strokeStyle = '#ea580c';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 16);
+      ctx.quadraticCurveTo(9 + tailWag, 24, 6 + tailWag * 1.3, 31);
+      ctx.stroke();
+
+      // Jasna końcówka ogonka
+      ctx.strokeStyle = '#fed7aa';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(6 + tailWag * 1.1, 28);
+      ctx.lineTo(6 + tailWag * 1.3, 31);
+      ctx.stroke();
+
+      // Wystające białe łapki (przednie i tylne)
+      ctx.fillStyle = '#ffedd5';
+      ctx.beginPath();
+      ctx.ellipse(-10, -7, 4, 5, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(10, -7, 4, 5, 0.3, 0, Math.PI * 2);
+      ctx.ellipse(-11, 10, 4, 4.5, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(11, 10, 4, 4.5, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Tułów kotka (z gradientem futerka)
+      const bodyGrad = ctx.createRadialGradient(-3, 0, 3, 0, 3, 18);
+      bodyGrad.addColorStop(0, '#fb923c');
+      bodyGrad.addColorStop(1, '#ea580c');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, 3, 13.5, 17, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Jasna łatka na grzbiecie / brzuszku
+      ctx.fillStyle = 'rgba(254, 215, 170, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 7, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pręgi tygrysie na grzbiecie
+      ctx.fillStyle = '#9a3412';
+      ctx.beginPath();
+      ctx.roundRect(-10, -1, 7, 2.5, 1);
+      ctx.roundRect(3, -1, 7, 2.5, 1);
+      ctx.roundRect(-11, 5, 8, 2.5, 1);
+      ctx.roundRect(3, 5, 8, 2.5, 1);
+      ctx.roundRect(-8, 11, 16, 2.5, 1);
+      ctx.fill();
+
+      // Czerwona obróżka ze złotym dzwoneczkiem
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, -6, 9.5, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+
+      // Dzwoneczek przy obroży
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(0, -3, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ca8a04';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Głowa kotka
+      const headGrad = ctx.createRadialGradient(-2, -13, 2, 0, -11, 13);
+      headGrad.addColorStop(0, '#fb923c');
+      headGrad.addColorStop(1, '#ea580c');
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.arc(0, -11, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pręgi na czole
+      ctx.fillStyle = '#9a3412';
+      ctx.fillRect(-1, -21, 2, 5);
+      ctx.fillRect(-4, -19, 1.5, 4);
+      ctx.fillRect(2.5, -19, 1.5, 4);
+
+      // Uszka
+      ctx.fillStyle = '#c2410c';
+      ctx.beginPath();
+      ctx.moveTo(-11, -14);
+      ctx.lineTo(-5, -25);
+      ctx.lineTo(-1, -16);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(11, -14);
+      ctx.lineTo(5, -25);
+      ctx.lineTo(1, -16);
+      ctx.closePath();
+      ctx.fill();
+
+      // Różowe wnętrze uszek
+      ctx.fillStyle = '#fda4af';
+      ctx.beginPath();
+      ctx.moveTo(-9.5, -15);
+      ctx.lineTo(-5.5, -22.5);
+      ctx.lineTo(-2.5, -16);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(9.5, -15);
+      ctx.lineTo(5.5, -22.5);
+      ctx.lineTo(2.5, -16);
+      ctx.closePath();
+      ctx.fill();
+
+      // Puszyste policzki
+      ctx.fillStyle = '#ffedd5';
+      ctx.beginPath();
+      ctx.arc(-3.5, -6.5, 3.2, 0, Math.PI * 2);
+      ctx.arc(3.5, -6.5, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Oczka (zielono-bursztynowe tęczówki + źrenice + błysk)
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(-4.8, -11.5, 2.9, 0, Math.PI * 2);
+      ctx.arc(4.8, -11.5, 2.9, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(-4.8, -11.5, 1.9, 0, Math.PI * 2);
+      ctx.arc(4.8, -11.5, 1.9, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Biały błysk w oczkach
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-5.5, -12.3, 0.9, 0, Math.PI * 2);
+      ctx.arc(4.1, -12.3, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Różowy trójkątny nosek
+      ctx.fillStyle = '#fb7185';
+      ctx.beginPath();
+      ctx.moveTo(-2.2, -8);
+      ctx.lineTo(2.2, -8);
+      ctx.lineTo(0, -5.8);
+      ctx.closePath();
+      ctx.fill();
+
+      // Wąsiki (wibrysy)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-4, -7.5); ctx.lineTo(-15, -10);
+      ctx.moveTo(-4, -6.5); ctx.lineTo(-15, -6.5);
+      ctx.moveTo(-4, -5.5); ctx.lineTo(-14, -3.5);
+      ctx.moveTo(4, -7.5); ctx.lineTo(15, -10);
+      ctx.moveTo(4, -6.5); ctx.lineTo(15, -6.5);
+      ctx.moveTo(4, -5.5); ctx.lineTo(14, -3.5);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Rysowanie szczegółowego samochodu osobowego oraz ciężarówki z naczepą
+    function drawVehicle(v) {
+      ctx.save();
+      const dir = v.speed > 0 ? 1 : -1;
+
+      // 1. Snopy światła z przednich reflektorów
+      ctx.save();
+      const beamLength = 42;
+      const beamX = dir > 0 ? v.x + v.width : v.x;
+      const beamGrad = ctx.createLinearGradient(beamX, 0, beamX + dir * beamLength, 0);
+      beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0.35)');
+      beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      ctx.fillStyle = beamGrad;
+
+      // Górna wiązka światła
+      ctx.beginPath();
+      ctx.moveTo(beamX, v.y + 4);
+      ctx.lineTo(beamX + dir * beamLength, v.y - 4);
+      ctx.lineTo(beamX + dir * beamLength, v.y + 14);
+      ctx.lineTo(beamX, v.y + 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // Dolna wiązka światła
+      ctx.beginPath();
+      ctx.moveTo(beamX, v.y + v.height - 10);
+      ctx.lineTo(beamX + dir * beamLength, v.y + v.height - 14);
+      ctx.lineTo(beamX + dir * beamLength, v.y + v.height + 4);
+      ctx.lineTo(beamX, v.y + v.height - 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 2. Cień pod pojazdem
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.roundRect(v.x + 2, v.y + 4, v.width, v.height, 8);
+      ctx.fill();
+
+      // 3. Koła z bieżnikiem
+      const wheelPositions = v.type === 'truck'
+        ? [8, 24, v.width - 20]
+        : [9, v.width - 21];
+      wheelPositions.forEach(wx => {
+        const wheelX = dir > 0 ? v.x + wx : v.x + v.width - wx - 12;
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(wheelX, v.y - 3, 12, 5, 2);
+        ctx.roundRect(wheelX, v.y + v.height - 2, 12, 5, 2);
+        ctx.fill();
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(wheelX + 3, v.y - 2, 6, 2);
+        ctx.fillRect(wheelX + 3, v.y + v.height, 6, 2);
+      });
+
+      if (v.type === 'truck') {
+        // CIĘŻARÓWKA: oddzielna kabina i prążkowana naczepa
+        const cabW = 28;
+        const trailerW = v.width - cabW - 3;
+        const cabX = dir > 0 ? v.x + v.width - cabW : v.x;
+        const trailerX = dir > 0 ? v.x : v.x + cabW + 3;
+
+        // Zaczep między kabiną a naczepą
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(dir > 0 ? trailerX + trailerW - 2 : cabX + cabW - 2, v.y + 12, 6, v.height - 24);
+
+        // Kabina kierowcy
+        ctx.fillStyle = v.color;
+        ctx.beginPath();
+        ctx.roundRect(cabX, v.y + 1, cabW, v.height - 2, 6);
+        ctx.fill();
+
+        // Lusterka boczne kabiny
+        const mirrorX = dir > 0 ? cabX + cabW - 8 : cabX + 5;
+        ctx.fillStyle = v.color;
+        ctx.fillRect(mirrorX, v.y - 4, 3, 5);
+        ctx.fillRect(mirrorX, v.y + v.height - 1, 3, 5);
+
+        // Przednia szyba kabiny
+        ctx.fillStyle = '#38bdf8';
+        const winX = dir > 0 ? cabX + cabW - 11 : cabX + 3;
+        ctx.beginPath();
+        ctx.roundRect(winX, v.y + 4, 8, v.height - 8, 2);
+        ctx.fill();
+
+        // Naczepa towarowa (jasna z wytłoczeniami)
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.roundRect(trailerX, v.y, trailerW, v.height, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Kolorowy pas firmowy na naczepie
+        ctx.fillStyle = v.color;
+        ctx.fillRect(trailerX + 3, v.y + v.height / 2 - 3, trailerW - 6, 6);
+
+        // Żebrowanie dachu naczepy
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        for (let rx = trailerX + 8; rx < trailerX + trailerW - 6; rx += 10) {
+          ctx.beginPath();
+          ctx.moveTo(rx, v.y + 2);
+          ctx.lineTo(rx, v.y + v.height - 2);
+          ctx.stroke();
+        }
+      } else {
+        // SAMOCHÓD OSOBOWY: zaokrąglona karoseria, lusterka, szyby, dach i pasy
+        ctx.fillStyle = v.color;
+        ctx.beginPath();
+        ctx.roundRect(v.x, v.y, v.width, v.height, 9);
+        ctx.fill();
+
+        // Zderzaki (przód i tył)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(dir > 0 ? v.x + v.width - 2 : v.x - 1, v.y + 6, 3, v.height - 12);
+        ctx.fillRect(dir > 0 ? v.x - 1 : v.x + v.width - 2, v.y + 6, 3, v.height - 12);
+
+        // Lusterka boczne
+        const mirrorX = dir > 0 ? v.x + v.width - 22 : v.x + 18;
+        ctx.fillStyle = v.color;
+        ctx.beginPath();
+        ctx.roundRect(mirrorX, v.y - 4, 4, 5, 1);
+        ctx.roundRect(mirrorX, v.y + v.height - 1, 4, 5, 1);
+        ctx.fill();
+
+        // Sportowy pas przez środek maski i dachu
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.fillRect(v.x + 4, v.y + v.height / 2 - 2.5, v.width - 8, 5);
+
+        // Kabina przeszklona (ciemne szyby)
+        const cabinX = dir > 0 ? v.x + 10 : v.x + 16;
+        const cabinW = v.width - 26;
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(cabinX, v.y + 4, cabinW, v.height - 8, 5);
+        ctx.fill();
+
+        // Połysk na przedniej szybie
+        ctx.fillStyle = '#7dd3fc';
+        const frontGlassX = dir > 0 ? cabinX + cabinW - 10 : cabinX + 2;
+        ctx.beginPath();
+        ctx.roundRect(frontGlassX, v.y + 5, 8, v.height - 10, 2);
+        ctx.fill();
+
+        // Dach samochodu na środku kabiny
+        ctx.fillStyle = v.color;
+        const roofX = dir > 0 ? cabinX + 7 : cabinX + 11;
+        ctx.beginPath();
+        ctx.roundRect(roofX, v.y + 6, cabinW - 18, v.height - 12, 3);
+        ctx.fill();
+      }
+
+      // 4. Światła przednie i tylne
+      if (dir > 0) {
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(v.x + v.width - 2, v.y + 4, 2.5, 6);
+        ctx.fillRect(v.x + v.width - 2, v.y + v.height - 10, 2.5, 6);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(v.x, v.y + 4, 2.5, 6);
+        ctx.fillRect(v.x, v.y + v.height - 10, 2.5, 6);
+      } else {
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(v.x - 0.5, v.y + 4, 2.5, 6);
+        ctx.fillRect(v.x - 0.5, v.y + v.height - 10, 2.5, 6);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(v.x + v.width - 2, v.y + 4, 2.5, 6);
+        ctx.fillRect(v.x + v.width - 2, v.y + v.height - 10, 2.5, 6);
+      }
+
+      ctx.restore();
+    }
+
+    // Rysowanie rybki (bonus z płetwami, łuskami i poświatą)
+    function drawFish(f) {
+      if (f.collected) return;
+      ctx.save();
+      const pulse = Math.sin(performance.now() * 0.005) * 1.5;
+      ctx.translate(f.x, f.y + pulse);
+
+      // Złocista poświata pod rybką
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+      ctx.beginPath();
+      ctx.arc(13, 12, 13, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Płetwa grzbietowa i brzuszna
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.moveTo(10, 6);
+      ctx.quadraticCurveTo(13, 1, 16, 6);
+      ctx.fill();
+
+      // Ogon rybki
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.moveTo(5, 12);
+      ctx.lineTo(-2, 5);
+      ctx.lineTo(0, 12);
+      ctx.lineTo(-2, 19);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ciałko rybki z gradientem
+      const fishGrad = ctx.createLinearGradient(4, 6, 22, 18);
+      fishGrad.addColorStop(0, '#7dd3fc');
+      fishGrad.addColorStop(1, '#0284c7');
+      ctx.fillStyle = fishGrad;
+      ctx.beginPath();
+      ctx.ellipse(13, 12, 9.5, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Skrzela / łuska
+      ctx.strokeStyle = '#bae6fd';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(15, 12, 3.5, 1.8, 4.5);
+      ctx.stroke();
+
+      // Oko rybki
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(18, 10.5, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(18.5, 10, 0.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Prosta detekcja kolizji prostokątów AABB
+    function checkCollision(rect1, rect2) {
+      const margin = 4; // mały margines wybaczenia
+      return (
+        rect1.x + margin < rect2.x + rect2.width &&
+        rect1.x + rect1.width - margin > rect2.x &&
+        rect1.y + margin < rect2.y + rect2.height &&
+        rect1.y + rect1.height - margin > rect2.y
+      );
+    }
+
+    // Ruch kotka
+    function moveCat(direction) {
+      if (gameState !== 'PLAYING') return;
+
+      cat.facing = direction;
+      let targetX = cat.x;
+      let targetY = cat.y;
+
+      if (direction === 'up') targetY -= cat.stepY;
+      if (direction === 'down') targetY += cat.stepY;
+      if (direction === 'left') targetX -= cat.stepX;
+      if (direction === 'right') targetX += cat.stepX;
+
+      // Sprawdzenie granic ekranu
+      if (targetX >= 10 && targetX <= CANVAS_WIDTH - cat.width - 10) {
+        cat.x = targetX;
+      }
+      if (targetY >= 10 && targetY <= CANVAS_HEIGHT - cat.height - 5) {
+        cat.y = targetY;
+      }
+
+      playSound('jump');
+
+      // Punkty za posuwanie się w górę
+      if (cat.y < highestYReached) {
+        score += 10;
+        highestYReached = cat.y;
+        updateHUD();
+      }
+
+      // Sprawdzenie wygranej (dotarcie do zielonego trawnika mety: y <= 110)
+      if (cat.y <= 110) {
+        onLevelComplete();
+      }
+    }
+
+    // Obsługa przejścia poziomu
+    function onLevelComplete() {
+      gameState = 'LEVEL_COMPLETE';
+      score += 150 * level;
+      playSound('win');
+      updateHUD();
+      winScreen.classList.remove('hidden');
+    }
+
+    // Obsługa potrącenia kotka
+    function handleHit() {
+      playSound('hit');
+      lives--;
+      updateHUD();
+
+      // Efekt wizualny - błysk ekranu na czerwono
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      if (lives <= 0) {
+        gameState = 'GAMEOVER';
+        finalScoreEl.textContent = score;
+        gameOverScreen.classList.remove('hidden');
+      } else {
+        cat.reset();
+      }
+    }
+
+    function updateHUD() {
+      livesEl.textContent = lives;
+      scoreEl.textContent = score;
+      levelEl.textContent = level;
+    }
+
+    function startNewGame() {
+      level = 1;
+      score = 0;
+      lives = 3;
+      cat.reset();
+      initVehicles();
+      spawnFishes();
+      updateHUD();
+      gameState = 'PLAYING';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      winScreen.classList.add('hidden');
+    }
+
+    function nextLevel() {
+      level++;
+      cat.reset();
+      initVehicles();
+      spawnFishes();
+      updateHUD();
+      gameState = 'PLAYING';
+      winScreen.classList.add('hidden');
+    }
+
+    // Główna pętla gry
+    function gameLoop() {
+      drawEnvironment();
+
+      if (gameState === 'PLAYING') {
+        // Aktualizacja pozycji pojazdów
+        vehicles.forEach(v => {
+          v.x += v.speed;
+
+          // Zawijanie pojazdów wokół krawędzi
+          if (v.speed > 0 && v.x > CANVAS_WIDTH + 50) {
+            v.x = -v.width - 20;
+          } else if (v.speed < 0 && v.x < -v.width - 50) {
+            v.x = CANVAS_WIDTH + 20;
+          }
+
+          // Sprawdzanie kolizji pojazdu z kotkiem
+          if (checkCollision(cat, v)) {
+            handleHit();
+          }
+        });
+
+        // Sprawdzanie zbierania rybek
+        fishes.forEach(f => {
+          if (!f.collected && checkCollision(cat, f)) {
+            f.collected = true;
+            score += 50;
+            playSound('fish');
+            updateHUD();
+          }
+        });
+      }
+
+      // Rysowanie bonusów rybek
+      fishes.forEach(drawFish);
+
+      // Rysowanie pojazdów
+      vehicles.forEach(drawVehicle);
+
+      // Rysowanie kotka
+      drawCat(cat.x, cat.y, cat.facing);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Sterowanie klawiaturą
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'KeyW'].includes(e.code)) {
+        e.preventDefault();
+        moveCat('up');
+      } else if (['ArrowDown', 'KeyS'].includes(e.code)) {
+        e.preventDefault();
+        moveCat('down');
+      } else if (['ArrowLeft', 'KeyA'].includes(e.code)) {
+        e.preventDefault();
+        moveCat('left');
+      } else if (['ArrowRight', 'KeyD'].includes(e.code)) {
+        e.preventDefault();
+        moveCat('right');
+      }
+    });
+
+    // Sterowanie przyciskami ekranowymi
+    document.getElementById('btnUp').addEventListener('click', () => moveCat('up'));
+    document.getElementById('btnDown').addEventListener('click', () => moveCat('down'));
+    document.getElementById('btnLeft').addEventListener('click', () => moveCat('left'));
+    document.getElementById('btnRight').addEventListener('click', () => moveCat('right'));
+
+    startBtn.addEventListener('click', () => {
+      getAudioContext();
+      startNewGame();
+    });
+
+    restartBtn.addEventListener('click', () => {
+      getAudioContext();
+      startNewGame();
+    });
+
+    nextLevelBtn.addEventListener('click', () => {
+      nextLevel();
+    });
+
+    // Start pętli
+    initVehicles();
+    spawnFishes();
+    requestAnimationFrame(gameLoop);
+  </script>
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>

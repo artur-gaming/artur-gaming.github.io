@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symulator Żeglarski Delfia 24 - Edukacyjna Symulacja Trymu Żagli</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    <!-- Górny pasek statusu i wskaźniki telemetryczne -->
+    <header id="hud-top">
+      <div class="hud-card brand">
+        <div class="brand-title">DELFIA 24 OD</div>
+        <div class="brand-subtitle">SYMULATOR TRYMU ŻAGLI</div>
+      </div>
+
+      <div class="hud-card wind-info">
+        <div class="hud-label">WIATR RZECZYWISTY (TWS/TWD)</div>
+        <div class="hud-value" id="hud-true-wind">-- kn | --°</div>
+        <div class="hud-sub" id="hud-wind-course-name">Kurs: --</div>
+      </div>
+
+      <div class="hud-card apparent-wind-info">
+        <div class="hud-label">WIATR POZORNY (AWS/AWA)</div>
+        <div class="hud-value" id="hud-apparent-wind">-- kn | --°</div>
+        <div class="hud-sub">Działa na żagle w ruchu</div>
+      </div>
+
+      <div class="hud-card speed-info">
+        <div class="hud-label">PRĘDKOŚĆ ŁODZI (SOG)</div>
+        <div class="hud-value speed-highlight" id="hud-boat-speed">0.0 kn</div>
+        <div class="hud-sub" id="hud-target-speed">Optimum: 0.0 kn</div>
+      </div>
+
+      <div class="hud-card timer-card" id="timer-box">
+        <div class="hud-label">CZAS NA TRYM</div>
+        <div class="hud-value timer-val" id="hud-timer">60.0s</div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="timer-bar"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Główny ekran Canvas (widok z boku na Delfię 24 OD) -->
+    <main id="simulation-view">
+      <canvas id="sail-canvas"></canvas>
+
+      <!-- Mini kompas taktyczny w prawym górnym rogu -->
+      <div id="tactical-compass-widget">
+        <div class="widget-header">KOMPAS TAKTYCZNY</div>
+        <canvas id="compass-canvas" width="130" height="130"></canvas>
+        <div class="compass-legend">
+          <span class="legend-twd">■ Wiatr rzecz.</span>
+          <span class="legend-awa">■ Wiatr pozor.</span>
+        </div>
+      </div>
+
+      <!-- Wskaźnik zgrania trymu (ogólny wskaźnik sprawności aerodynamiki) -->
+      <div id="trim-efficiency-badge">
+        <div class="eff-title">SPRAWNOŚĆ OŻAGLOWANIA</div>
+        <div class="eff-gauge-container">
+          <div class="eff-gauge-fill" id="trim-efficiency-fill"></div>
+          <span class="eff-gauge-text" id="trim-efficiency-val">0%</span>
+        </div>
+        <div class="eff-status" id="trim-status-desc">Dostrajanie...</div>
+      </div>
+
+      <!-- Edukacyjne podpowiedzi ickerów (Tell-tales) -->
+      <div id="tell-tale-hud">
+        <div class="tell-item" id="tt-jib">
+          <span class="tt-dot" id="tt-jib-dot"></span>
+          <span class="tt-text" id="tt-jib-msg">Fok: Za mocno poluzowany</span>
+        </div>
+        <div class="tell-item" id="tt-main">
+          <span class="tt-dot" id="tt-main-dot"></span>
+          <span class="tt-text" id="tt-main-msg">Grot: Łopoce</span>
+        </div>
+      </div>
+
+      <!-- Ekran powiadomień / Wyników / Startu -->
+      <div id="overlay-screen" class="overlay">
+        <div class="modal-card">
+          <h2 id="modal-title">GOTÓW DO WYŚCIGU?</h2>
+          <div class="modal-body" id="modal-content">
+            <p>Jesteś trymerem na regatowym jachcie <strong>Delfia 24 One Design</strong>.</p>
+            <p>Komputer wylosował realistyczny kurs i siłę wiatru. Twoim zadaniem jest <strong>jak najszybsze optymalne ustawienie żagli</strong>.</p>
+            <div class="controls-guide">
+              <div class="guide-row">
+                <span class="key-badge">1</span> Fok (Szot)
+                <span class="key-badge">2</span> Grot (Szot)
+                <span class="key-badge">3</span> Obciągacz / Wózek (Twist)
+              </div>
+              <div class="guide-row">
+                <span class="key-badge">W</span> PUSZCZANIE (Luzuj żagiel)
+                <span class="key-badge">S</span> CIĄGNIĘCIE (Wybieraj żagiel)
+              </div>
+            </div>
+            <p class="tolerance-note">Tolerancja optymalnego ustawienia: <strong>±20%</strong>. Masz <strong>60 sekund</strong> na opanowanie łodzi!</p>
+          </div>
+          <div class="modal-actions">
+            <button id="btn-start" class="btn-primary">START SYMULACJI (SPACJA)</button>
+            <button id="btn-sound-toggle" class="btn-secondary">DŹWIĘK: WŁĄCZONY 🔊</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Dolny panel sterowania stanowiskami (Klawisze 1, 2, 3 oraz W i S) -->
+    <footer id="hud-bottom">
+      <div class="stations-container">
+        <!-- Stanowisko 1: Szot Foka -->
+        <div class="station-card" id="station-1" data-station="1">
+          <div class="station-number">1</div>
+          <div class="station-details">
+            <div class="station-name">SZOT FOKA</div>
+            <div class="station-role">Przedni żagiel / Kąt natarcia</div>
+            <div class="station-slider-wrap">
+              <div class="station-track">
+                <div class="station-zone" id="zone-1"></div>
+                <div class="station-pointer" id="pointer-1"></div>
+              </div>
+              <div class="station-readout" id="readout-1">Poluzowany: 50%</div>
+            </div>
+            <div class="station-hint" id="hint-1">Optimum: 45% (±20%)</div>
+          </div>
+        </div>
+
+        <!-- Stanowisko 2: Szot Grota -->
+        <div class="station-card active" id="station-2" data-station="2">
+          <div class="station-number">2</div>
+          <div class="station-details">
+            <div class="station-name">SZOT GROTA</div>
+            <div class="station-role">Główny pędnik / Kąt bomu</div>
+            <div class="station-slider-wrap">
+              <div class="station-track">
+                <div class="station-zone" id="zone-2"></div>
+                <div class="station-pointer" id="pointer-2"></div>
+              </div>
+              <div class="station-readout" id="readout-2">Poluzowany: 50%</div>
+            </div>
+            <div class="station-hint" id="hint-2">Optimum: 40% (±20%)</div>
+          </div>
+        </div>
+
+        <!-- Stanowisko 3: Obciągacz bomu / Wózek grota -->
+        <div class="station-card" id="station-3" data-station="3">
+          <div class="station-number">3</div>
+          <div class="station-details">
+            <div class="station-name">OBCIĄGACZ BOMU (VANG)</div>
+            <div class="station-role">Skręt grota (Twist) / Profil</div>
+            <div class="station-slider-wrap">
+              <div class="station-track">
+                <div class="station-zone" id="zone-3"></div>
+                <div class="station-pointer" id="pointer-3"></div>
+              </div>
+              <div class="station-readout" id="readout-3">Poluzowany: 50%</div>
+            </div>
+            <div class="station-hint" id="hint-3">Optimum: 35% (±20%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Klawisze akcji W i S -->
+      <div class="action-keys-container">
+        <div class="key-control-box">
+          <button class="action-btn" id="btn-ease" title="Klawisz W: Puść / Luzuj">
+            <span class="action-key-name">W</span>
+            <span class="action-label">LUZUJ (PUŚĆ)</span>
+          </button>
+          <button class="action-btn" id="btn-trim" title="Klawisz S: Ciągnij / Wybieraj">
+            <span class="action-key-name">S</span>
+            <span class="action-label">WYBIERAJ (CIĄGNIJ)</span>
+          </button>
+        </div>
+        <div class="control-help">
+          Wciśnij <strong>1</strong>, <strong>2</strong>, <strong>3</strong> by wybrać żagiel.<br>
+          Przytrzymaj <strong>W</strong> (luz) lub <strong>S</strong> (wybierz).
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="sailing_physics.js"></script>
+  <script src="renderer.js"></script>
+  <script src="game.js"></script>
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DYWIZJON 303: Bitwa o Anglię 3D | Polskie Skrzydła</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='50' height='50' fill='%23dc2626'/><rect x='50' width='50' height='50' fill='%23ffffff'/><rect y='50' width='50' height='50' fill='%23ffffff'/><rect x='50' y='50' width='50' height='50' fill='%23dc2626'/></svg>">
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- 3D WebGL Canvas -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Cockpit Vignette (active when in first-person view) -->
+    <div id="cockpit-overlay"></div>
+
+    <!-- Red Damage Flash -->
+    <div id="damage-flash"></div>
+
+    <!-- Blinding White Flash on Atomic Bomb Detonation -->
+    <div id="nuke-flash"></div>
+
+    <!-- Sound Toggle Button -->
+    <button id="sound-toggle" title="Wycisz / Włącz dźwięk">🔊 DŹWIĘK WŁ</button>
+
+    <!-- HUD OVERLAY -->
+    <div id="hud">
+      <!-- Top Status (Kills, Waves, Score, Bombs, Upgrades) -->
+      <div id="top-bar">
+        <div class="status-pill" id="theater-pill" style="border-color: rgba(56, 189, 248, 0.4);">
+          <span class="title">TEATR DZIAŁAŃ</span>
+          <span class="val" id="theater-val" style="font-size: 14px; color: #38bdf8;">ANGLIA 1940</span>
+        </div>
+        <div class="status-pill">
+          <span class="title">FALA</span>
+          <span class="val" id="wave-val">1</span>
+        </div>
+        <div class="status-pill">
+          <span class="title">ZESTRZELENIA</span>
+          <span class="val" id="kills-val">0</span>
+        </div>
+        <div class="status-pill">
+          <span class="title">PUNKTY</span>
+          <span class="val score-val" id="score-val">0</span>
+        </div>
+        <div class="status-pill">
+          <span class="title">💣 BOMBY [B]</span>
+          <span class="val" id="bombs-val" style="color: #fb923c;">4/4</span>
+        </div>
+        <div class="status-pill clickable-pill" id="open-upgrades-pill" title="Otwórz Warsztat Ulepszeń (Klawisz U)">
+          <span class="title" style="color: #a855f7;">⚙️ ULEPSZENIA [U]</span>
+        </div>
+        <div class="status-pill clickable-pill" id="menu-btn-pill" title="Powrót do Menu Głównego (Klawisz T)">
+          <span class="title" style="color: #38bdf8;">🏠 MENU [T]</span>
+        </div>
+      </div>
+
+      <!-- Center Reticle & Target Lead Indicator -->
+      <div id="crosshair-container">
+        <div class="crosshair">
+          <div class="crosshair-dot"></div>
+        </div>
+      </div>
+
+      <!-- Virtual Mouse Aim Ring (wskaźnik kierunku myszy) -->
+      <div id="mouse-aim-cursor"></div>
+
+      <!-- Dynamic Lead Aim Reticle (kółko wyprzedzenia) -->
+      <div id="lead-reticle" title="Celuj tutaj, aby trafić wrogi samolot!"></div>
+
+      <!-- Hit Marker (czerwony krzyżyk po trafieniu) -->
+      <div id="hit-marker"></div>
+
+      <!-- Kill Announcement Banner -->
+      <div id="kill-announcement">MESSERSCHMITT W PŁOMIENIACH!</div>
+
+      <!-- Mission Banner -->
+      <div id="mission-banner">FALA 1: PATROL LUFTWAFFE - ROZPOZNANIE BOJOWE</div>
+
+      <!-- Left Flight Gauge: Airspeed -->
+      <div class="flight-gauge" id="speed-gauge">
+        <div class="gauge-label">Prędkość (IAS)</div>
+        <div class="gauge-value"><span id="speed-val">270</span><span class="gauge-unit">km/h</span></div>
+        <div class="gauge-bar-bg">
+          <div class="gauge-bar-fill" id="speed-bar"></div>
+        </div>
+      </div>
+
+      <!-- Right Flight Gauge: Altitude -->
+      <div class="flight-gauge" id="alt-gauge">
+        <div class="gauge-label">Wysokość</div>
+        <div class="gauge-value"><span id="alt-val">450</span><span class="gauge-unit">m</span></div>
+        <div class="gauge-bar-bg">
+          <div class="gauge-bar-fill" id="alt-bar"></div>
+        </div>
+      </div>
+
+      <!-- Tactical Radar (Minimap) -->
+      <div id="radar-container">
+        <canvas id="radar-canvas" width="160" height="160"></canvas>
+        <div class="radar-sweep"></div>
+      </div>
+
+      <!-- Bottom Health and Gun Overheat Bars -->
+      <div id="bottom-bar">
+        <div class="progress-group">
+          <div class="progress-label-row">
+            <span id="plane-name-label" style="color: #4ade80;">STAN SPITFIRE (KADŁUB)</span>
+          </div>
+          <div class="gauge-bar-bg" style="height: 10px;">
+            <div class="gauge-bar-fill health-fill" id="health-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <div class="progress-group">
+          <div class="progress-label-row">
+            <span id="gun-name-label" style="color: #38bdf8;">TEMPERATURA DZIAŁEK (HISPANO / BROWNING)</span>
+          </div>
+          <div class="gauge-bar-bg" style="height: 6px;">
+            <div class="gauge-bar-fill heat-fill" id="heat-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Hint -->
+      <div id="controls-hint">
+        <div><kbd>1</kbd> Spitfire Mk VB • <kbd>2</kbd> Boeing B-17G • <kbd>3</kbd> Boeing B-29</div>
+        <div><kbd>B</kbd> Zrzut bomby (B-29: ☢️ Bomba Atomowa!) • <kbd>U</kbd> Warsztat Ulepszeń</div>
+        <div><kbd>Myszka</kbd> lub <kbd>W</kbd><kbd>S</kbd><kbd>A</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> Lot</div>
+        <div><kbd>LPM</kbd> / <kbd>Spacja</kbd> Ogień z działek</div>
+        <div><kbd>Shift</kbd> / <kbd>Ctrl</kbd> Ciąg / Dopalacz</div>
+        <div><kbd>Q</kbd> / <kbd>E</kbd> Dodatkowy przechył (beczka)</div>
+        <div><kbd>C</kbd> Widok z Kokpitu / Zza samolotu</div>
+        <div><kbd>M</kbd> Wł. / Wył. sterowanie myszką</div>
+        <div><kbd>T</kbd> Powrót do menu • <kbd>P</kbd> / <kbd>Esc</kbd> Pauza</div>
+      </div>
+    </div>
+
+    <!-- START / MAIN MENU SCREEN -->
+    <div id="start-screen" class="modal-screen">
+      <div class="title-box">
+        <div class="sub-badge">II Wojna Światowa 1940-1945 • Europa & Pacyfik</div>
+        <h1 class="main-title">SKRZYDŁA CHWAŁY 3D</h1>
+        <p class="main-desc">
+          Wybierz teatr wojenny oraz swój samolot: zwinnego <strong>Spitfire'a</strong>, legendarną <strong>Latającą Fortecę B-17</strong> lub strategiczną <strong>Superfortecę B-29 z Bombą Atomową</strong>!
+        </p>
+      </div>
+
+      <!-- Map Theater Selection Cards -->
+      <div class="selection-section-title">📍 WYBIERZ TEATR WOJENNY (MAPA)</div>
+      <div class="map-select-row">
+        <div class="map-card active" id="select-map-britain" data-map="britain">
+          <div class="map-card-header">
+            <span class="map-tag">MAPA 1 • EUROPA 1940</span>
+            <h3>Kanał La Manche & Klify Dover</h3>
+          </div>
+          <p>Bitwa o Anglię: białe klify, balony zaporowe, myśliwce Messerschmitt Bf 109, bombowce Stuka oraz okręty Kriegsmarine.</p>
+        </div>
+
+        <div class="map-card" id="select-map-japan" data-map="japan">
+          <div class="map-card-header">
+            <span class="map-tag japan-tag">MAPA 2 • PACYFIK 1945</span>
+            <h3>Japonia & Góra Fudżi (Pacyfik)</h3>
+          </div>
+          <p>Teatr Pacyfiku: ośnieżona Góra Fudżi, wyspy wulkaniczne, brama Torii, myśliwce Mitsubishi A6M Zero i okręty wojenne IJN.</p>
+        </div>
+      </div>
+
+      <!-- Aircraft Selection Cards -->
+      <div class="selection-section-title">✈️ WYBIERZ SAMOLOT BOJOWY (KLAWISZE 1, 2, 3)</div>
+      <div class="plane-select-row">
+        <div class="plane-card active" id="select-spitfire" data-plane="Spitfire">
+          <div class="plane-card-header">
+            <span class="plane-tag">MYŚLIWIEC (Klawisz 1)</span>
+            <h3>Supermarine Spitfire Mk VB</h3>
+          </div>
+          <p>Szybki i niezwykle zwrotny myśliwiec przechwytujący Dywizjonu 303 z biało-czerwoną szachownicą.</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Wysoka</strong></span>
+            <span>🛡️ Pancerz: <strong>150 HP</strong></span>
+            <span>🔫 Uzbrojenie: <strong>2x 20mm Hispano + 4x KM</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-b17" data-plane="B17">
+          <div class="plane-card-header">
+            <span class="plane-tag b17-tag">LATAJĄCA FORTECA (Klawisz 2)</span>
+            <h3>Boeing B-17G Flying Fortress</h3>
+          </div>
+          <p>Ciężki 4-silnikowy bombowiec USAAF. Posiada wieżyczkę podbródkową, grzbietową, kulistą i ogonową!</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Średnia</strong></span>
+            <span>🛡️ Pancerz: <strong>450 HP (Pancerny)</strong></span>
+            <span>🔫 Uzbrojenie: <strong>6x .50 cal + Wieżyczki AI</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-b29" data-plane="B29">
+          <div class="plane-card-header">
+            <span class="plane-tag b29-tag">SUPERFORTECA (Klawisz 3)</span>
+            <h3>Boeing B-29 Superfortress</h3>
+          </div>
+          <p>Srebrny kolos USAAF uzbrojony w <strong>Bombę Atomową [B]</strong>, zdalne wieżyczki i tytanowy pancerz!</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Wysoka (4x Wright R-3350)</strong></span>
+            <span>🛡️ Pancerz: <strong>600 HP (Kolos)</strong></span>
+            <span>☢️ Broń: <strong>BOMBA ATOMOWA [B]</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-cards">
+        <div class="info-card">
+          <h4>🎯 Wskazówki Celowania</h4>
+          <ul>
+            <li>Czerwone kółko z przerywaną linią to <strong>kalkulator wyprzedzenia</strong> celu.</li>
+            <li>Celuj w ruchome kółko, by pociski przecięły tor lotu Messerschmitta!</li>
+            <li>Kontroluj ogień – nie dopuść do przegrzania działek Hispano.</li>
+          </ul>
+        </div>
+        <div class="info-card">
+          <h4>✈️ Samoloty Wroga</h4>
+          <ul>
+            <li><strong>Messerschmitt Bf 109</strong>: szybki i zwinny myśliwiec z żółtym nosem.</li>
+            <li><strong>Junkers Ju 87 Stuka</strong>: nurkujący bombowiec z syreną Jericho.</li>
+            <li><strong>As Luftwaffe</strong>: elitarny dowódca eskadry Jagdgeschwader.</li>
+          </ul>
+        </div>
+      </div>
+
+      <button id="start-btn" class="btn-primary">START MISJI</button>
+    </div>
+
+    <!-- UPGRADE WORKSHOP SCREEN (Key U) -->
+    <div id="upgrade-screen" class="modal-screen hidden">
+      <div class="title-box" style="margin-bottom: 15px;">
+        <div class="sub-badge" style="background: #7e22ce;">Warsztat Dywizjonu • Klawisz U</div>
+        <h2 class="main-title" style="font-size: 44px;">ULEPSZENIA SAMOLOTU</h2>
+        <p class="main-desc">Wydawaj zdobyte punkty na ulepszenia uzbrojenia, silnika, pancerza oraz bomb!</p>
+        <div style="margin-top: 10px; font-family: 'Oswald', sans-serif; font-size: 24px; color: #facc15;">
+          DOSTĘPNE PUNKTY: <span id="upg-points-val">0</span> PKT
+        </div>
+      </div>
+
+      <div class="upgrade-grid">
+        <div class="upgrade-card">
+          <div class="upg-header">
+            <h4>🔥 Siła Ognia Działek</h4>
+            <span class="upg-lvl" id="upg-damage-lvl">Poz. 1 / 5</span>
+          </div>
+          <p>Zwiększa obrażenia pocisków z działek i wieżyczek o +25% (maks. Poz. 5).</p>
+          <button class="btn-upgrade" id="btn-upg-damage">ULEPSZ (250 PKT)</button>
+        </div>
+
+        <div class="upgrade-card">
+          <div class="upg-header">
+            <h4>❄️ Chłodzenie Luf</h4>
+            <span class="upg-lvl" id="upg-cooling-lvl">Poz. 1 / 5</span>
+          </div>
+          <p>Mniejsze nagrzewanie luf i szybsze chłodzenie działek (maks. Poz. 5).</p>
+          <button class="btn-upgrade" id="btn-upg-cooling">ULEPSZ (250 PKT)</button>
+        </div>
+
+        <div class="upgrade-card">
+          <div class="upg-header">
+            <h4>🚀 Tuning Silnika</h4>
+            <span class="upg-lvl" id="upg-engine-lvl">Poz. 1 / 5</span>
+          </div>
+          <p>Zwiększa prędkość maks. oraz zwrotność samolotu o +8% (maks. Poz. 5).</p>
+          <button class="btn-upgrade" id="btn-upg-engine">ULEPSZ (300 PKT)</button>
+        </div>
+
+        <div class="upgrade-card">
+          <div class="upg-header">
+            <h4>🛡️ Pancerz + Naprawa</h4>
+            <span class="upg-lvl" id="upg-armor-lvl">Poz. 1 / 5</span>
+          </div>
+          <p>Zwiększa wytrzymałość o +60 HP i naprawia kadłub do 100% (maks. Poz. 5)!</p>
+          <button class="btn-upgrade" id="btn-upg-armor">ULEPSZ (200 PKT)</button>
+        </div>
+
+        <div class="upgrade-card">
+          <div class="upg-header">
+            <h4>💣 Ciężkie Bomby [B]</h4>
+            <span class="upg-lvl" id="upg-bombs-lvl">Poz. 1 / 5</span>
+          </div>
+          <p>Więcej bomb w komorze, większa fala uderzeniowa i szybsze przeładowanie (maks. Poz. 5).</p>
+          <button class="btn-upgrade" id="btn-upg-bombs">ULEPSZ (300 PKT)</button>
+        </div>
+      </div>
+
+      <button id="close-upgrade-btn" class="btn-primary">WRÓĆ DO WALKI [U]</button>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div id="pause-screen" class="modal-screen hidden">
+      <div class="title-box">
+        <h2 class="main-title">GRA WSTRZYMANA</h2>
+        <p class="main-desc">Gotowy do wznowienia walki powietrznej?</p>
+      </div>
+      <div style="display: flex; gap: 14px; margin-top: 10px;">
+        <button id="resume-btn" class="btn-primary">WZNÓW MISJĘ</button>
+        <button id="pause-menu-btn" class="btn-secondary">🏠 POWRÓT DO MENU [T]</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="game-over-screen" class="modal-screen hidden">
+      <div class="title-box">
+        <div class="sub-badge" style="background: #991b1b;">Samolot Strącony</div>
+        <h2 class="main-title" style="color: #ef4444;">KONIEC MISJI</h2>
+        <p class="main-desc" id="game-over-reason">Twój samolot odniósł zbyt ciężkie uszkodzenia i został zestrzelony.</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="num" id="final-kills">0</div>
+          <div class="label">Zestrzelone samoloty</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="final-wave">1</div>
+          <div class="label">Osiągnięta Fala</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="final-score">0</div>
+          <div class="label">Końcowe Punkty</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 14px; margin-top: 10px;">
+        <button id="restart-btn" class="btn-primary">SPRÓBUJ PONOWNIE</button>
+        <button id="game-over-menu-btn" class="btn-secondary">🏠 POWRÓT DO MENU [T]</button>
+      </div>
+    </div>
+
+    <!-- VICTORY SCREEN -->
+    <div id="victory-screen" class="modal-screen hidden">
+      <div class="title-box">
+        <div class="sub-badge" style="background: #15803d;">Zwycięstwo w Powietrzu</div>
+        <h2 class="main-title" style="color: #22c55e;">NIEBO OCZYSZCZONE!</h2>
+        <p class="main-desc">
+          Wszystkie wrogie formacje zostały rozgromione! Formacja alianckich bombowców bezpiecznie dotarła do celu.
+        </p>
+      </div>
+
+      <div class="stats-grid" style="max-width: 350px;">
+        <div class="stat-box">
+          <div class="num" id="vic-kills">0</div>
+          <div class="label">Zestrzelenia</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="vic-score">0</div>
+          <div class="label">Punkty</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 14px; margin-top: 10px;">
+        <button id="victory-btn" class="btn-primary">TRYB NIESKOŃCZONY</button>
+        <button id="victory-menu-btn" class="btn-secondary">🏠 POWRÓT DO MENU [T]</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Game Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>

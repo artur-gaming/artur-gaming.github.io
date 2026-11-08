@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C-130 Hercules - Operacja Powietrznodesantowa</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #08121e;
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      color: #7aff85;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px;
+    }
+
+    /* Military HUD aesthetic */
+    .hud-box {
+      background: rgba(4, 20, 10, 0.65);
+      border: 1px solid rgba(80, 255, 120, 0.45);
+      box-shadow: 0 0 15px rgba(40, 200, 80, 0.15), inset 0 0 15px rgba(20, 100, 40, 0.2);
+      backdrop-filter: blur(4px);
+      border-radius: 4px;
+      padding: 10px 14px;
+      text-shadow: 0 0 6px rgba(80, 255, 120, 0.7);
+    }
+
+    /* Top HUD */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .plane-status {
+      display: flex;
+      gap: 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #55b866;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #a4ffad;
+    }
+    .stat-value span {
+      font-size: 12px;
+      color: #6ed47d;
+      font-weight: normal;
+    }
+
+    /* Target DZ Center Banner */
+    #dz-banner {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      transition: all 0.2s ease;
+      min-width: 380px;
+    }
+    #dz-banner.green-light {
+      border-color: #00ff66;
+      box-shadow: 0 0 25px rgba(0, 255, 100, 0.6), inset 0 0 20px rgba(0, 255, 100, 0.3);
+      background: rgba(0, 45, 15, 0.85);
+      animation: pulse-green 1s infinite alternate;
+    }
+    #dz-banner.red-light {
+      border-color: #ff3333;
+      box-shadow: 0 0 20px rgba(255, 50, 50, 0.4);
+      background: rgba(45, 10, 10, 0.8);
+    }
+    @keyframes pulse-green {
+      0% { transform: translateX(-50%) scale(1); }
+      100% { transform: translateX(-50%) scale(1.03); }
+    }
+
+    .banner-title {
+      font-size: 15px;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    .banner-status {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+    }
+    .banner-sub {
+      font-size: 12px;
+      margin-top: 4px;
+      color: #d1ffd6;
+    }
+
+    /* Artificial Horizon Center Reticle */
+    #crosshair-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      pointer-events: none;
+    }
+
+    /* Minimap Radar */
+    #radar-container {
+      position: relative;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(80, 255, 120, 0.6);
+      background: rgba(4, 25, 12, 0.75);
+      box-shadow: 0 0 15px rgba(40, 200, 80, 0.3);
+    }
+    #radar-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Bottom HUD */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    /* Controls Help */
+    #controls-help {
+      max-width: 480px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .key-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      background: rgba(80, 255, 120, 0.2);
+      border: 1px solid rgba(80, 255, 120, 0.6);
+      border-radius: 3px;
+      color: #ffffff;
+      font-weight: bold;
+      margin: 0 2px;
+    }
+
+    /* Action Drop Button for mobile or clicks */
+    #drop-action-btn {
+      pointer-events: auto;
+      cursor: pointer;
+      background: linear-gradient(180deg, #186028, #0e3d17);
+      border: 2px solid #55ff77;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 28px;
+      border-radius: 6px;
+      letter-spacing: 2px;
+      box-shadow: 0 0 20px rgba(80, 255, 120, 0.4);
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #drop-action-btn:hover {
+      background: linear-gradient(180deg, #248b3b, #155722);
+      box-shadow: 0 0 30px rgba(80, 255, 120, 0.8);
+      transform: translateY(-2px);
+    }
+    #drop-action-btn:active, #drop-action-btn.active {
+      background: #47e26a;
+      color: #04250c;
+      transform: translateY(1px);
+    }
+
+    /* Mission Summary / Notification Toast */
+    #toast-msg {
+      position: absolute;
+      top: 170px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 30, 15, 0.9);
+      border: 2px solid #47e26a;
+      color: #afffc0;
+      padding: 10px 24px;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+      z-index: 20;
+      text-align: center;
+    }
+    #toast-msg.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(5px);
+    }
+
+    /* Audio toggle & camera buttons */
+    .hud-buttons {
+      pointer-events: auto;
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .hud-btn {
+      background: rgba(10, 40, 20, 0.7);
+      border: 1px solid rgba(80, 255, 120, 0.4);
+      color: #7aff85;
+      font-family: inherit;
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+    .hud-btn:hover {
+      background: rgba(30, 90, 40, 0.9);
+      color: #fff;
+    }
+
+    /* Start / Briefing Overlay */
+    #start-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 12, 6, 0.92);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+    .briefing-box {
+      max-width: 650px;
+      background: rgba(6, 26, 12, 0.9);
+      border: 2px solid #55ff77;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(60, 220, 100, 0.3);
+    }
+    .briefing-title {
+      font-size: 32px;
+      color: #afffc0;
+      letter-spacing: 3px;
+      margin-bottom: 12px;
+      text-shadow: 0 0 15px rgba(80, 255, 120, 0.8);
+    }
+    .briefing-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #d1ffd6;
+      margin-bottom: 24px;
+    }
+    .briefing-instructions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      text-align: left;
+      background: rgba(0, 15, 6, 0.6);
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid rgba(80, 255, 120, 0.3);
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .start-btn {
+      background: linear-gradient(180deg, #248b3b, #155722);
+      border: 2px solid #55ff77;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 20px;
+      font-weight: bold;
+      padding: 14px 45px;
+      border-radius: 6px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(80, 255, 120, 0.5);
+      transition: all 0.2s;
+    }
+    .start-btn:hover {
+      transform: scale(1.05);
+      background: linear-gradient(180deg, #30b84e, #1a6d2b);
+      box-shadow: 0 0 35px rgba(80, 255, 120, 0.8);
+    }
+
+    /* Jump Ramp View Green Lamp on screen edges */
+    #jump-lamp {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      box-shadow: inset 0 0 70px rgba(0, 255, 100, 0);
+      transition: box-shadow 0.2s ease;
+      z-index: 5;
+    }
+    #jump-lamp.active {
+      box-shadow: inset 0 0 90px rgba(0, 255, 100, 0.5);
+    }
+
+    /* Crash screen overlay */
+    #crash-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(40, 0, 0, 0.85);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .crash-box {
+      max-width: 550px;
+      background: rgba(30, 5, 5, 0.95);
+      border: 2px solid #ff3333;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 45px rgba(255, 50, 50, 0.6);
+    }
+    .crash-title {
+      font-size: 36px;
+      color: #ff4d4d;
+      letter-spacing: 3px;
+      margin-bottom: 12px;
+      text-shadow: 0 0 15px rgba(255, 50, 50, 0.8);
+    }
+    .crash-desc {
+      font-size: 15px;
+      color: #ffd2d2;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .crash-btn {
+      background: linear-gradient(180deg, #aa1818, #600c0c);
+      border: 2px solid #ff5555;
+      color: #fff;
+      font-family: inherit;
+      font-size: 18px;
+      padding: 12px 35px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+    .crash-btn:hover {
+      background: linear-gradient(180deg, #d42222, #801212);
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="jump-lamp"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <!-- Flight Instrument Cluster -->
+      <div class="hud-box plane-status">
+        <div class="stat-item">
+          <span class="stat-label">PRĘDKOŚĆ</span>
+          <span class="stat-value" id="val-speed">320 <span>km/h</span></span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">WYSOKOŚĆ</span>
+          <span class="stat-value" id="val-alt">450 <span>m</span></span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">CIĄG SILNIKÓW</span>
+          <span class="stat-value" id="val-throttle">75%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">PALIWO</span>
+          <span class="stat-value" id="val-fuel">100%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">WIATR</span>
+          <span class="stat-value" id="val-wind">12 <span>km/h ➔</span></span>
+        </div>
+      </div>
+
+      <!-- Minimap Radar -->
+      <div style="display: flex; flex-direction: column; align-items: flex-end;">
+        <div id="radar-container">
+          <canvas id="radar-canvas" width="170" height="170"></canvas>
+        </div>
+        <div class="hud-buttons">
+          <button class="hud-btn" id="btn-cam">KAMERA [C]: ZEWNĘTRZNA</button>
+          <button class="hud-btn" id="btn-audio">DŹWIĘK: WŁĄCZONY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Drop Zone Clearance Banner -->
+    <div id="dz-banner" class="hud-box red-light">
+      <div class="banner-title" id="dz-name">CEL: STREFA ZRZUTU ALFA</div>
+      <div class="banner-status" id="dz-signal">CZERWONE ŚWIATŁO - ZBLIŻANIE</div>
+      <div class="banner-sub" id="dz-distance">DYSTANS: 1,240 m | WYSOKOŚĆ: OPTYMALNA</div>
+    </div>
+
+    <!-- Pitch Ladder / Flight Reticle (SVG) -->
+    <div id="crosshair-container">
+      <svg width="200" height="200" viewBox="0 0 200 200" style="overflow: visible;">
+        <!-- Center Crosshair -->
+        <circle cx="100" cy="100" r="28" fill="none" stroke="rgba(80, 255, 120, 0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <line x1="60" y1="100" x2="88" y2="100" stroke="#7aff85" stroke-width="2"/>
+        <line x1="112" y1="100" x2="140" y2="100" stroke="#7aff85" stroke-width="2"/>
+        <line x1="100" y1="60" x2="100" y2="88" stroke="#7aff85" stroke-width="2"/>
+        <line x1="100" y1="112" x2="100" y2="140" stroke="#7aff85" stroke-width="2"/>
+        <circle cx="100" cy="100" r="3" fill="#7aff85"/>
+
+        <!-- Artificial Horizon Indicator -->
+        <g id="hud-horizon" transform="translate(100, 100)">
+          <line x1="-50" y1="0" x2="-20" y2="0" stroke="rgba(80, 255, 120, 0.7)" stroke-width="1.5"/>
+          <line x1="20" y1="0" x2="50" y2="0" stroke="rgba(80, 255, 120, 0.7)" stroke-width="1.5"/>
+          <line x1="-35" y1="18" x2="-15" y2="18" stroke="rgba(80, 255, 120, 0.5)" stroke-width="1"/>
+          <line x1="15" y1="18" x2="35" y2="18" stroke="rgba(80, 255, 120, 0.5)" stroke-width="1"/>
+          <line x1="-35" y1="-18" x2="-15" y2="-18" stroke="rgba(80, 255, 120, 0.5)" stroke-width="1"/>
+          <line x1="15" y1="-18" x2="35" y2="-18" stroke="rgba(80, 255, 120, 0.5)" stroke-width="1"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast-msg">TRAFIENIE W SAM ŚRODEK DZ! +100 PKT</div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <!-- Controls Legend -->
+      <div class="hud-box" id="controls-help">
+        <div style="color: #afffc0; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px;">STEROWANIE C-130:</div>
+        <div><span class="key-badge">W</span> / <span class="key-badge">S</span> (lub <span class="key-badge">▲</span> / <span class="key-badge">▼</span>) : Ster wysokości</div>
+        <div><span class="key-badge">A</span> / <span class="key-badge">D</span> (lub <span class="key-badge">◄</span> / <span class="key-badge">►</span>) : Lotki (Przechył i skręt w lewo/prawo)</div>
+        <div><span class="key-badge">Q</span> / <span class="key-badge">E</span> : Ster kierunku | <span class="key-badge">SHIFT</span>/<span class="key-badge">CTRL</span> : Ciąg</div>
+        <div><span class="key-badge">B</span> : Powrót do bazy / lądowanie | <span class="key-badge">C</span> : Kamera</div>
+        <div style="margin-top: 4px; color: #55ff77; font-weight: bold;">
+          <span class="key-badge" style="background: #248b3b; border-color: #55ff77;">F</span> : ZRZUT SPADOCHRONIARZA | Lotnisko: pas startowy na południu (Z: 3000)
+        </div>
+      </div>
+
+      <!-- Paratrooper Payload & Drop Action Button -->
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+        <div class="hud-box" style="display: flex; gap: 20px;">
+          <div class="stat-item">
+            <span class="stat-label">ŁADUNEK NA POKŁADZIE</span>
+            <span class="stat-value" id="val-paratroopers">40 <span>SKOCZKÓW</span></span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">WYLĄDOWANI W DZ</span>
+            <span class="stat-value" id="val-score">0 <span>(0%)</span></span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">PUNKTY</span>
+            <span class="stat-value" id="val-points">0</span>
+          </div>
+        </div>
+
+        <!-- Big interactive Drop Button -->
+        <button id="drop-action-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v10m0 0l-4-4m4 4l4-4"/>
+            <path d="M4 14a8 8 0 0 1 16 0"/>
+            <circle cx="12" cy="19" r="2" fill="currentColor"/>
+          </svg>
+          ZRZUĆ SPADOCHRONIARZY [F]
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crash Overlay -->
+  <div id="crash-overlay">
+    <div class="crash-box">
+      <div class="crash-title">SAMOLOT ROZBITY!</div>
+      <p class="crash-desc" id="crash-reason">
+        C-130 Hercules zderzył się ze zboczem góry / terenem na zbyt niskim pułapie!
+      </p>
+      <button class="crash-btn" id="crash-restart-btn">ODRÓDŹ NA PASIE STARTOWYM</button>
+    </div>
+  </div>
+
+  <!-- Start & Briefing Screen -->
+  <div id="start-overlay">
+    <div class="briefing-box">
+      <div class="briefing-title">OPERACJA HERCULES</div>
+      <div style="color: #6ed47d; font-size: 15px; margin-bottom: 16px; letter-spacing: 2px;">
+        LOCKHEED C-130 HERCULES TACTICAL AIRDROP
+      </div>
+      <p class="briefing-desc">
+        Wcielasz się w pilota 4-silnikowego wojskowego samolotu transportowego <b>C-130 Hercules</b>.
+        Twoją misją jest precyzyjny zrzut desantu powietrznego w oznakowanych strefach lądowania (<b>DZ - Drop Zones</b>).
+        Zwracaj uwagę na siłę i kierunek wiatru oraz wysokość lotu!
+      </p>
+
+      <div class="briefing-instructions">
+        <div>
+          <b style="color: #7aff85;">✈️ Sterowanie lotem:</b><br>
+          • <span class="key-badge">W</span> / <span class="key-badge">S</span> - Wysokość (ster wysokości)<br>
+          • <span class="key-badge">A</span> / <span class="key-badge">D</span> - Przechył i skręt (lewo/prawo)<br>
+          • <span class="key-badge">Q</span> / <span class="key-badge">E</span> - Ster kierunku<br>
+          • <span class="key-badge">SHIFT</span> / <span class="key-badge">CTRL</span> - Przepustnica<br>
+          • <span class="key-badge">B</span> - Autopilot podejścia do bazy (RTB)<br>
+          • <span class="key-badge">C</span> - Zmiana kamery (Rampa / Za samolotem)
+        </div>
+        <div>
+          <b style="color: #7aff85;">🪂 Zrzut skoczków i baza:</b><br>
+          • Klawisz <span class="key-badge" style="background:#248b3b; color:#fff;">F</span> wyrzuca desant!<br>
+          • Czekaj na <b>ZIELONE ŚWIATŁO</b> nad strefą.<br>
+          • Uważaj na góry i niski lot - grozi <b>katastrofą</b>!<br>
+          • Wracaj na lotnisko po paliwo i skoczków (ląduj lub wciśnij <span class="key-badge">B</span>).<br>
+          • W sam środek strefy (Bullseye) = <b>100 pkt</b>!
+        </div>
+      </div>
+
+      <button class="start-btn" id="start-game-btn">ROZPOCZNIJ MISJĘ</button>
+    </div>
+  </div>
+
+  <!-- Three.js (Offline local fallback / CDN loaded) -->
+  <script src="three.min.js"></script>
+
+  <script>
+    // ==========================================
+    // AUDIO ENGINE (Web Audio API Procedural)
+    // ==========================================
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.engineOsc1 = null;
+        this.engineOsc2 = null;
+        this.engineGain = null;
+        this.propellerFilter = null;
+        this.isInitialized = false;
+      }
+
+      init() {
+        if (this.isInitialized) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.initEngineSound();
+          this.isInitialized = true;
+        } catch (e) {
+          console.warn('Web Audio not supported or blocked:', e);
+        }
+      }
+
+      initEngineSound() {
+        if (!this.ctx) return;
+        // 4-turboprop drone synthesis
+        this.engineOsc1 = this.ctx.createOscillator();
+        this.engineOsc2 = this.ctx.createOscillator();
+        this.engineGain = this.ctx.createGain();
+        
+        // Low turboprop rumble
+        this.engineOsc1.type = 'sawtooth';
+        this.engineOsc1.frequency.setValueAtTime(62, this.ctx.currentTime); // ~60 Hz engine base
+
+        // Propeller harmonics
+        this.engineOsc2.type = 'triangle';
+        this.engineOsc2.frequency.setValueAtTime(124, this.ctx.currentTime);
+
+        // Lowpass filter to muffle engine cabin sound
+        this.propellerFilter = this.ctx.createBiquadFilter();
+        this.propellerFilter.type = 'lowpass';
+        this.propellerFilter.frequency.setValueAtTime(450, this.ctx.currentTime);
+
+        this.engineGain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+
+        this.engineOsc1.connect(this.propellerFilter);
+        this.engineOsc2.connect(this.propellerFilter);
+        this.propellerFilter.connect(this.engineGain);
+        this.engineGain.connect(this.ctx.destination);
+
+        this.engineOsc1.start();
+        this.engineOsc2.start();
+      }
+
+      updateEnginePitch(throttleRatio) {
+        if (!this.isInitialized || !this.engineOsc1) return;
+        const baseFreq = 50 + throttleRatio * 35; // 50Hz to 85Hz
+        this.engineOsc1.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.1);
+        this.engineOsc2.frequency.setTargetAtTime(baseFreq * 2.1, this.ctx.currentTime, 0.1);
+        const filterFreq = 320 + throttleRatio * 300;
+        this.propellerFilter.frequency.setTargetAtTime(filterFreq, this.ctx.currentTime, 0.1);
+      }
+
+      // Paratrooper jump buzzer / green light horn
+      playJumpBuzzer() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now); // 880 Hz beep
+        osc.frequency.setValueAtTime(1200, now + 0.08);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.23);
+      }
+
+      // Parachute deployment snap / whoosh
+      playChuteDeploy() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        
+        // Pop snap
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(70, now + 0.15);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.19);
+      }
+
+      // Touchdown celebration / landing beep
+      playTouchdown(isBullseye) {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+
+        if (isBullseye) {
+          osc.frequency.setValueAtTime(523.25, now); // C5
+          osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+          osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+          osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.52);
+        } else {
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(587.33, now + 0.12);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.32);
+        }
+      }
+
+      // Crash explosion sound
+      playCrash() {
+        if (!this.ctx || !this.enabled) return;
+        const now = this.ctx.currentTime;
+
+        // Noise buffer for explosion
+        const bufferSize = this.ctx.sampleRate * 1.5;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(60, now + 1.2);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 1.4);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start(now);
+      }
+
+      toggleAudio() {
+        this.enabled = !this.enabled;
+        if (this.engineGain) {
+          this.engineGain.gain.setValueAtTime(this.enabled ? 0.08 : 0, this.ctx.currentTime);
+        }
+        return this.enabled;
+      }
+    }
+
+    const sound = new SoundFX();
+
+    // ==========================================
+    // THREE.JS SCENE SETUP
+    // ==========================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8bc0ec); // Atmospheric blue sky
+    scene.fog = new THREE.FogExp2(0xb5d8f7, 0.00035);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 25000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    // ==========================================
+    // LIGHTING & ATMOSPHERE
+    // ==========================================
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x486241, 0.75);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff7e8, 1.3);
+    sunLight.position.set(1200, 2200, 1500);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 500;
+    sunLight.shadow.camera.far = 6000;
+    const shadowDist = 1200;
+    sunLight.shadow.camera.left = -shadowDist;
+    sunLight.shadow.camera.right = shadowDist;
+    sunLight.shadow.camera.top = shadowDist;
+    sunLight.shadow.camera.bottom = -shadowDist;
+    scene.add(sunLight);
+
+    // ==========================================
+    // PROCEDURAL TERRAIN & ENVIRONMENT
+    // ==========================================
+    // Massive terrain with rolling mountains, forest patches and runway
+    const terrainSize = 24000;
+    const terrainSegments = 128;
+    const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+    terrainGeo.rotateX(-Math.PI / 2);
+
+    const posAttr = terrainGeo.attributes.position;
+    const vertex = new THREE.Vector3();
+
+    // Terrain elevation query helper
+    function getTerrainHeight(x, z) {
+      // Flat corridor in the center for drop zones and runway
+      const distFromCenterZ = Math.abs(z);
+      const distFromCenterX = Math.abs(x);
+      
+      let elevation = 0;
+      if (distFromCenterX > 600 || distFromCenterZ > 8000) {
+        // Rolling mountains on sides
+        elevation += Math.sin(x * 0.0012) * Math.cos(z * 0.001) * 220;
+        elevation += Math.sin(x * 0.0028 + 1.2) * Math.sin(z * 0.003) * 110;
+        elevation += Math.sin(x * 0.0004) * 350;
+      } else {
+        // Flat drop valley
+        elevation = Math.sin(x * 0.003) * 15 + Math.cos(z * 0.002) * 20;
+      }
+      return Math.max(0, elevation);
+    }
+
+    // Generate natural hills and valleys
+    for (let i = 0; i < posAttr.count; i++) {
+      vertex.fromBufferAttribute(posAttr, i);
+      const elevation = getTerrainHeight(vertex.x, vertex.z);
+      posAttr.setY(i, elevation);
+    }
+    terrainGeo.computeVertexNormals();
+
+    // Canvas procedural terrain texture
+    function createTerrainTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // Base grassland/olive military green
+      ctx.fillStyle = '#456338';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Add noise and terrain variation
+      for (let i = 0; i < 4000; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 1024;
+        const r = 4 + Math.random() * 35;
+        ctx.fillStyle = Math.random() > 0.5 ? '#3b5430' : '#4f6f40';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Dirt patches
+      for (let i = 0; i < 600; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 1024;
+        const r = 8 + Math.random() * 20;
+        ctx.fillStyle = '#675c3f';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(40, 40);
+      return texture;
+    }
+
+    const terrainMat = new THREE.MeshLambertMaterial({
+      map: createTerrainTexture(),
+      roughness: 0.9,
+    });
+    const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    terrainMesh.receiveShadow = true;
+    scene.add(terrainMesh);
+
+    // Runway at start base
+    const runwayGeo = new THREE.PlaneGeometry(120, 2200);
+    runwayGeo.rotateX(-Math.PI / 2);
+    const runwayMat = new THREE.MeshLambertMaterial({ color: 0x2b2f33 });
+    const runwayMesh = new THREE.Mesh(runwayGeo, runwayMat);
+    runwayMesh.position.set(0, 1.5, 3000);
+    scene.add(runwayMesh);
+
+    // Centerline markings on runway
+    const lineGeo = new THREE.PlaneGeometry(3, 2000);
+    lineGeo.rotateX(-Math.PI / 2);
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+    const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+    lineMesh.position.set(0, 2, 3000);
+    scene.add(lineMesh);
+
+    // Airport Service Bay / Resupply Hangar
+    const hangarGeo = new THREE.BoxGeometry(80, 25, 60);
+    const hangarMat = new THREE.MeshLambertMaterial({ color: 0x3d4844 });
+    const hangar = new THREE.Mesh(hangarGeo, hangarMat);
+    hangar.position.set(110, 12.5, 3000);
+    scene.add(hangar);
+
+    // Control Tower
+    const towerGeo = new THREE.CylinderGeometry(8, 10, 45, 8);
+    const towerMat = new THREE.MeshLambertMaterial({ color: 0x5a635f });
+    const tower = new THREE.Mesh(towerGeo, towerMat);
+    tower.position.set(-110, 22.5, 3000);
+    scene.add(tower);
+
+    const towerGlassGeo = new THREE.CylinderGeometry(10, 10, 8, 8);
+    const towerGlassMat = new THREE.MeshBasicMaterial({ color: 0x88ccff });
+    const towerGlass = new THREE.Mesh(towerGlassGeo, towerGlassMat);
+    towerGlass.position.set(-110, 47, 3000);
+    scene.add(towerGlass);
+
+    // Airport Resupply Zone Ring on ground
+    const airportRingGeo = new THREE.RingGeometry(50, 60, 32);
+    airportRingGeo.rotateX(-Math.PI / 2);
+    const airportRingMat = new THREE.MeshBasicMaterial({ color: 0x00e1ff, side: THREE.DoubleSide });
+    const airportRing = new THREE.Mesh(airportRingGeo, airportRingMat);
+    airportRing.position.set(0, 2.2, 3000);
+    scene.add(airportRing);
+
+    // Airport Beacon Light
+    const airportBeacon = new THREE.PointLight(0x00ffcc, 2.0, 800);
+    airportBeacon.position.set(-110, 52, 3000);
+    scene.add(airportBeacon);
+
+    // Trees and scenery clusters along the valley
+    const treeGeo = new THREE.ConeGeometry(8, 25, 5);
+    const trunkGeo = new THREE.CylinderGeometry(2, 2.5, 8, 5);
+    const treeMat = new THREE.MeshLambertMaterial({ color: 0x1f3c1d });
+    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x3d2b1f });
+
+    const treeGroup = new THREE.Group();
+    for (let i = 0; i < 400; i++) {
+      const tx = (Math.random() - 0.5) * 8000;
+      const tz = (Math.random() - 0.5) * 14000;
+      // Skip runway center
+      if (Math.abs(tx) < 140 && Math.abs(tz - 3000) < 1300) continue;
+
+      const singleTree = new THREE.Group();
+      const foliage = new THREE.Mesh(treeGeo, treeMat);
+      foliage.position.y = 16;
+      foliage.castShadow = true;
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 4;
+      singleTree.add(trunk);
+      singleTree.add(foliage);
+      singleTree.position.set(tx, 0, tz);
+      const scale = 0.8 + Math.random() * 0.6;
+      singleTree.scale.set(scale, scale, scale);
+      treeGroup.add(singleTree);
+    }
+    scene.add(treeGroup);
+
+    // Clouds in the sky
+    const cloudGeo = new THREE.DodecahedronGeometry(80, 1);
+    const cloudMat = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.65,
+    });
+    const clouds = [];
+    for (let i = 0; i < 60; i++) {
+      const cloud = new THREE.Group();
+      const puffs = 4 + Math.floor(Math.random() * 4);
+      for (let p = 0; p < puffs; p++) {
+        const puff = new THREE.Mesh(cloudGeo, cloudMat);
+        puff.position.set((Math.random() - 0.5) * 140, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 140);
+        const s = 0.6 + Math.random() * 0.8;
+        puff.scale.set(s * 1.5, s * 0.6, s * 1.2);
+        cloud.add(puff);
+      }
+      cloud.position.set(
+        (Math.random() - 0.5) * 12000,
+        750 + Math.random() * 400,
+        (Math.random() - 0.5) * 16000
+      );
+      scene.add(cloud);
+      clouds.push(cloud);
+    }
+
+    // ==========================================
+    // C-130 HERCULES 3D MODEL
+    // ==========================================
+    // Authentic proportions: High straight wing, 4 turboprops, rear ramp, military haze/olive livery
+    const airplane = new THREE.Group();
+
+    // Aircraft materials
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x48524d, // Tactical olive-grey military camo
+      roughness: 0.55,
+      metalness: 0.25
+    });
+    const bodyDarkMat = new THREE.MeshStandardMaterial({
+      color: 0x2a302e,
+      roughness: 0.6,
+      metalness: 0.3
+    });
+    const cockpitGlassMat = new THREE.MeshStandardMaterial({
+      color: 0x112233,
+      roughness: 0.1,
+      metalness: 0.9
+    });
+    const propMat = new THREE.MeshBasicMaterial({
+      color: 0x111111,
+      transparent: true,
+      opacity: 0.45
+    });
+    const propTipMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+
+    // 1. Fuselage
+    // Main tube
+    const fuseGeo = new THREE.CylinderGeometry(3.6, 3.6, 32, 18);
+    fuseGeo.rotateX(Math.PI / 2);
+    const fuselage = new THREE.Mesh(fuseGeo, bodyMat);
+    fuselage.castShadow = true;
+    airplane.add(fuselage);
+
+    // Nose section & cockpit
+    const noseGeo = new THREE.ConeGeometry(3.6, 8, 18);
+    noseGeo.rotateX(-Math.PI / 2);
+    const nose = new THREE.Mesh(noseGeo, bodyMat);
+    nose.position.z = -20;
+    nose.castShadow = true;
+    airplane.add(nose);
+
+    // Cockpit windows
+    const cockpitGeo = new THREE.BoxGeometry(3.8, 1.8, 4);
+    const cockpit = new THREE.Mesh(cockpitGeo, cockpitGlassMat);
+    cockpit.position.set(0, 2.2, -16.5);
+    airplane.add(cockpit);
+
+    // Rear cargo section & upswept tail ramp
+    const rearGeo = new THREE.CylinderGeometry(3.6, 1.8, 16, 18);
+    rearGeo.rotateX(Math.PI / 2);
+    const rear = new THREE.Mesh(rearGeo, bodyMat);
+    rear.position.set(0, 1.2, 20);
+    airplane.add(rear);
+
+    // Rear Cargo Ramp (animated opening during drops)
+    const rampGeo = new THREE.BoxGeometry(3.6, 0.4, 5.5);
+    const rampMat = new THREE.MeshStandardMaterial({ color: 0x222625, roughness: 0.7 });
+    const cargoRamp = new THREE.Mesh(rampGeo, rampMat);
+    cargoRamp.position.set(0, -1.2, 18);
+    cargoRamp.rotation.x = 0; // Will tilt open
+    airplane.add(cargoRamp);
+
+    // Side Sponsons (landing gear fairings)
+    const sponsonGeo = new THREE.BoxGeometry(1.6, 2.2, 14);
+    const leftSponson = new THREE.Mesh(sponsonGeo, bodyDarkMat);
+    leftSponson.position.set(-3.7, -1.6, 0);
+    airplane.add(leftSponson);
+    const rightSponson = new THREE.Mesh(sponsonGeo, bodyDarkMat);
+    rightSponson.position.set(3.7, -1.6, 0);
+    airplane.add(rightSponson);
+
+    // 2. High Wings (C-130 distinctive feature)
+    const wingGeo = new THREE.BoxGeometry(48, 0.7, 6.2);
+    const wings = new THREE.Mesh(wingGeo, bodyMat);
+    wings.position.set(0, 3.4, -2);
+    wings.castShadow = true;
+    airplane.add(wings);
+
+    // Wingtip lights
+    const redLightGeo = new THREE.SphereGeometry(0.35, 8, 8);
+    const redLightMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+    const leftNavLight = new THREE.Mesh(redLightGeo, redLightMat);
+    leftNavLight.position.set(-24, 3.4, -2);
+    airplane.add(leftNavLight);
+
+    const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x11ff22 });
+    const rightNavLight = new THREE.Mesh(redLightGeo, greenLightMat);
+    rightNavLight.position.set(24, 3.4, -2);
+    airplane.add(rightNavLight);
+
+    // 3. Empennage (Tail Fin & Horizontal Stabilizers)
+    // Giant vertical stabilizer
+    const vFinGeo = new THREE.BoxGeometry(0.6, 12, 8);
+    const vFin = new THREE.Mesh(vFinGeo, bodyMat);
+    vFin.position.set(0, 8.5, 24);
+    vFin.castShadow = true;
+    airplane.add(vFin);
+
+    // Horizontal stabilizers
+    const hStabGeo = new THREE.BoxGeometry(19, 0.5, 4.2);
+    const hStab = new THREE.Mesh(hStabGeo, bodyMat);
+    hStab.position.set(0, 5.2, 24);
+    airplane.add(hStab);
+
+    // 4. Four Allison T56 Turboprop Engines
+    const enginePositions = [-15, -7.5, 7.5, 15];
+    const propellers = [];
+
+    enginePositions.forEach(xPos => {
+      const nacelle = new THREE.Group();
+      nacelle.position.set(xPos, 2.4, -2);
+
+      // Nacelle body
+      const nacGeo = new THREE.CylinderGeometry(1.2, 1.1, 7.5, 12);
+      nacGeo.rotateX(Math.PI / 2);
+      const nacMesh = new THREE.Mesh(nacGeo, bodyDarkMat);
+      nacMesh.castShadow = true;
+      nacelle.add(nacMesh);
+
+      // Propeller Spinner
+      const spinGeo = new THREE.ConeGeometry(0.7, 2, 12);
+      spinGeo.rotateX(-Math.PI / 2);
+      const spinner = new THREE.Mesh(spinGeo, bodyDarkMat);
+      spinner.position.z = -4.5;
+      nacelle.add(spinner);
+
+      // 4-Blade Propeller Blur Disc
+      const propDiscGeo = new THREE.CircleGeometry(3.6, 24);
+      const propDisc = new THREE.Mesh(propDiscGeo, propMat);
+      propDisc.position.z = -4.4;
+      nacelle.add(propDisc);
+
+      // Actual propeller blades for visual rotation
+      const propGroup = new THREE.Group();
+      propGroup.position.z = -4.4;
+
+      for (let b = 0; b < 4; b++) {
+        const bladeGeo = new THREE.BoxGeometry(0.35, 3.5, 0.08);
+        bladeGeo.translate(0, 1.75, 0);
+        const blade = new THREE.Mesh(bladeGeo, bodyDarkMat);
+        blade.rotation.z = (Math.PI / 2) * b;
+
+        // Yellow tip
+        const tipGeo = new THREE.BoxGeometry(0.36, 0.7, 0.09);
+        tipGeo.translate(0, 3.15, 0);
+        const tip = new THREE.Mesh(tipGeo, propTipMat);
+        blade.add(tip);
+
+        propGroup.add(blade);
+      }
+      nacelle.add(propGroup);
+      propellers.push(propGroup);
+
+      airplane.add(nacelle);
+    });
+
+    // Interior Jump Lamp inside cargo ramp
+    const jumpLightObj = new THREE.PointLight(0x00ff44, 0, 15);
+    jumpLightObj.position.set(0, 0, 16);
+    airplane.add(jumpLightObj);
+
+    // Dynamic Projected Impact Reticle on Ground (Targeting computer)
+    const impactReticleGeo = new THREE.RingGeometry(16, 20, 32);
+    impactReticleGeo.rotateX(-Math.PI / 2);
+    const impactReticleMat = new THREE.MeshBasicMaterial({
+      color: 0x00ff88,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide
+    });
+    const impactReticle = new THREE.Mesh(impactReticleGeo, impactReticleMat);
+    impactReticle.position.y = 2.5;
+
+    // Cross lines for reticle
+    const retLineGeo = new THREE.PlaneGeometry(36, 1.5);
+    retLineGeo.rotateX(-Math.PI / 2);
+    const retLine1 = new THREE.Mesh(retLineGeo, impactReticleMat);
+    impactReticle.add(retLine1);
+    const retLine2 = retLine1.clone();
+    retLine2.rotation.y = Math.PI / 2;
+    impactReticle.add(retLine2);
+    scene.add(impactReticle);
+
+    // Initial Aircraft Position & Heading
+    airplane.position.set(0, 480, 2400); // Flying North towards DZs
+    scene.add(airplane);
+
+    // ==========================================
+    // DROP ZONES (MARKOWANE STREFY ZRZUTU)
+    // ==========================================
+    const dropZones = [
+      {
+        id: 'DZ-1',
+        name: 'STREFA ZRZUTU ALFA',
+        position: new THREE.Vector3(0, 0, -2000),
+        radiusBullseye: 45,
+        radiusInner: 120,
+        radiusOuter: 220,
+        color: 0x00ff66,
+        cleared: false
+      },
+      {
+        id: 'DZ-2',
+        name: 'STREFA ZRZUTU BRAVO',
+        position: new THREE.Vector3(450, 0, -6500),
+        radiusBullseye: 40,
+        radiusInner: 110,
+        radiusOuter: 200,
+        color: 0xffaa00,
+        cleared: false
+      },
+      {
+        id: 'DZ-3',
+        name: 'STREFA ZRZUTU CHARLIE',
+        position: new THREE.Vector3(-600, 0, -11500),
+        radiusBullseye: 35,
+        radiusInner: 95,
+        radiusOuter: 180,
+        color: 0x00e1ff,
+        cleared: false
+      }
+    ];
+
+    let currentDZIndex = 0;
+    const smokeParticles = [];
+
+    // Build visual markers for each Drop Zone
+    dropZones.forEach((dz, idx) => {
+      const dzGroup = new THREE.Group();
+      dzGroup.position.copy(dz.position);
+
+      // 1. Concentric ground rings
+      // Outer ring
+      const outerRingGeo = new THREE.RingGeometry(dz.radiusOuter - 4, dz.radiusOuter, 48);
+      outerRingGeo.rotateX(-Math.PI / 2);
+      const outerRingMat = new THREE.MeshBasicMaterial({ color: 0xffbb33, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+      const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+      outerRing.position.y = 2;
+      dzGroup.add(outerRing);
+
+      // Inner ring
+      const innerRingGeo = new THREE.RingGeometry(dz.radiusInner - 4, dz.radiusInner, 48);
+      innerRingGeo.rotateX(-Math.PI / 2);
+      const innerRingMat = new THREE.MeshBasicMaterial({ color: 0x33ddff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+      const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+      innerRing.position.y = 2.5;
+      dzGroup.add(innerRing);
+
+      // Bullseye Center ring
+      const bullseyeGeo = new THREE.RingGeometry(dz.radiusBullseye - 5, dz.radiusBullseye, 48);
+      bullseyeGeo.rotateX(-Math.PI / 2);
+      const bullseyeMat = new THREE.MeshBasicMaterial({ color: 0x00ff55, side: THREE.DoubleSide });
+      const bullseye = new THREE.Mesh(bullseyeGeo, bullseyeMat);
+      bullseye.position.y = 3;
+      dzGroup.add(bullseye);
+
+      // Center crosshairs
+      const chGeo = new THREE.PlaneGeometry(dz.radiusBullseye * 1.8, 3);
+      chGeo.rotateX(-Math.PI / 2);
+      const ch1 = new THREE.Mesh(chGeo, bullseyeMat);
+      ch1.position.y = 3.2;
+      dzGroup.add(ch1);
+      const ch2 = ch1.clone();
+      ch2.rotation.y = Math.PI / 2;
+      dzGroup.add(ch2);
+
+      // 2. High Signal Smoke Pillar (Flara dymna)
+      // Smokestack emitter base
+      const flareBaseGeo = new THREE.CylinderGeometry(2, 3, 4, 8);
+      const flareMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+      const flareBase = new THREE.Mesh(flareBaseGeo, flareMat);
+      flareBase.position.y = 2;
+      dzGroup.add(flareBase);
+
+      // Military outpost tents and antenna near DZ
+      const tentGeo = new THREE.ConeGeometry(12, 14, 4);
+      tentGeo.rotateY(Math.PI / 4);
+      const tentMat = new THREE.MeshLambertMaterial({ color: 0x394b37 });
+      const tent1 = new THREE.Mesh(tentGeo, tentMat);
+      tent1.position.set(-dz.radiusOuter - 20, 7, 0);
+      dzGroup.add(tent1);
+
+      const tent2 = tent1.clone();
+      tent2.position.set(-dz.radiusOuter - 45, 7, 25);
+      dzGroup.add(tent2);
+
+      // Radio mast with blinking beacon
+      const mastGeo = new THREE.CylinderGeometry(0.5, 1, 40, 6);
+      const mastMat = new THREE.MeshBasicMaterial({ color: 0x888888 });
+      const mast = new THREE.Mesh(mastGeo, mastMat);
+      mast.position.set(-dz.radiusOuter - 35, 20, -20);
+      dzGroup.add(mast);
+
+      const beaconLight = new THREE.PointLight(0xff2222, 1.5, 300);
+      beaconLight.position.set(-dz.radiusOuter - 35, 41, -20);
+      dzGroup.add(beaconLight);
+
+      scene.add(dzGroup);
+      dz.group = dzGroup;
+      dz.beaconLight = beaconLight;
+    });
+
+    // Smoke particle system for Drop Zones
+    const smokeTextureCanvas = document.createElement('canvas');
+    smokeTextureCanvas.width = 64;
+    smokeTextureCanvas.height = 64;
+    const sCtx = smokeTextureCanvas.getContext('2d');
+    const grad = sCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255, 140, 20, 0.8)');
+    grad.addColorStop(0.5, 'rgba(230, 90, 10, 0.4)');
+    grad.addColorStop(1, 'rgba(100, 100, 100, 0)');
+    sCtx.fillStyle = grad;
+    sCtx.fillRect(0, 0, 64, 64);
+    const smokeTexture = new THREE.CanvasTexture(smokeTextureCanvas);
+
+    function spawnSmokeParticle(pos, colorHex) {
+      const geo = new THREE.PlaneGeometry(16, 16);
+      const mat = new THREE.MeshBasicMaterial({
+        map: smokeTexture,
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+        color: colorHex || 0xff6600
+      });
+      const p = new THREE.Mesh(geo, mat);
+      p.position.set(
+        pos.x + (Math.random() - 0.5) * 8,
+        pos.y + 4,
+        pos.z + (Math.random() - 0.5) * 8
+      );
+      p.scale.set(1, 1, 1);
+      p.rotation.z = Math.random() * Math.PI * 2;
+      p.userData = {
+        vy: 18 + Math.random() * 12,
+        vx: (Math.random() - 0.5) * 4,
+        vz: (Math.random() - 0.5) * 4,
+        grow: 1.4,
+        maxLife: 6.0,
+        age: 0
+      };
+      scene.add(p);
+      smokeParticles.push(p);
+    }
+
+    // ==========================================
+    // PARATROOPERS (SPADOCHRONIARZE)
+    // ==========================================
+    const paratroopers = [];
+    let paratroopersRemaining = 40;
+    let landedParatroopers = 0;
+    let totalScore = 0;
+
+    // Build paratrooper 3D geometry
+    function createParatrooperModel() {
+      const trooper = new THREE.Group();
+
+      // Soldier body (camo olive uniform)
+      const soldierMat = new THREE.MeshStandardMaterial({ color: 0x3e4a36, roughness: 0.8 });
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xd9a584 });
+      const gearMat = new THREE.MeshStandardMaterial({ color: 0x22291e });
+
+      // Torso
+      const torsoGeo = new THREE.BoxGeometry(0.8, 1.2, 0.5);
+      const torso = new THREE.Mesh(torsoGeo, soldierMat);
+      torso.position.y = 0;
+      trooper.add(torso);
+
+      // Head with tactical helmet
+      const headGeo = new THREE.SphereGeometry(0.35, 8, 8);
+      const head = new THREE.Mesh(headGeo, skinMat);
+      head.position.y = 0.85;
+      trooper.add(head);
+
+      const helmetGeo = new THREE.SphereGeometry(0.4, 8, 6);
+      const helmet = new THREE.Mesh(helmetGeo, gearMat);
+      helmet.position.y = 0.95;
+      trooper.add(helmet);
+
+      // Legs
+      const legGeo = new THREE.BoxGeometry(0.35, 1.1, 0.35);
+      const leftLeg = new THREE.Mesh(legGeo, soldierMat);
+      leftLeg.position.set(-0.25, -1.1, 0);
+      trooper.add(leftLeg);
+      const rightLeg = new THREE.Mesh(legGeo, soldierMat);
+      rightLeg.position.set(0.25, -1.1, 0);
+      trooper.add(rightLeg);
+
+      // Tactical backpack / reserve chute pack
+      const packGeo = new THREE.BoxGeometry(0.7, 0.9, 0.45);
+      const pack = new THREE.Mesh(packGeo, gearMat);
+      pack.position.set(0, 0, -0.4);
+      trooper.add(pack);
+
+      // Parachute Canopy (Round military dome)
+      const canopyGroup = new THREE.Group();
+      canopyGroup.position.y = 4.8;
+
+      const canopyGeo = new THREE.SphereGeometry(3.6, 16, 12, 0, Math.PI * 2, 0, Math.PI / 1.7);
+      const canopyMat = new THREE.MeshLambertMaterial({
+        color: 0xe0e6db, // Military white/khaki round canopy
+        side: THREE.DoubleSide
+      });
+      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+      canopy.scale.set(1, 0.8, 1);
+      canopyGroup.add(canopy);
+
+      // Suspension cords (Riser lines from harness to canopy rim)
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.6 });
+      const lineCount = 8;
+      for (let i = 0; i < lineCount; i++) {
+        const angle = (i / lineCount) * Math.PI * 2;
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, -4.2, 0), // At soldier harness
+          new THREE.Vector3(Math.cos(angle) * 3.4, 0, Math.sin(angle) * 3.4) // At canopy rim
+        ]);
+        const line = new THREE.Line(lineGeo, lineMaterial);
+        canopyGroup.add(line);
+      }
+
+      canopyGroup.visible = false; // Initially packed until static line opens it!
+      trooper.add(canopyGroup);
+      trooper.canopyGroup = canopyGroup;
+
+      return trooper;
+    }
+
+    // Drop single paratrooper from cargo ramp
+    function dropParatrooper() {
+      if (paratroopersRemaining <= 0) {
+        showToast("MAGAZYN PUSTY! BRAK WIĘCEJ SKOCZKÓW");
+        return;
+      }
+
+      paratroopersRemaining--;
+      updateHUD();
+      sound.playJumpBuzzer();
+
+      // Ramp animation & jump lamp glow
+      cargoRamp.rotation.x = 0.45; // open ramp
+      jumpLightObj.intensity = 3.0;
+      document.getElementById('jump-lamp').classList.add('active');
+      document.getElementById('drop-action-btn').classList.add('active');
+      setTimeout(() => {
+        cargoRamp.rotation.x = 0;
+        jumpLightObj.intensity = 0;
+        document.getElementById('jump-lamp').classList.remove('active');
+        document.getElementById('drop-action-btn').classList.remove('active');
+      }, 350);
+
+      const trooper = createParatrooperModel();
+      
+      // Spawn at the back cargo door
+      const dropWorldPos = new THREE.Vector3(0, -1.2, 19);
+      dropWorldPos.applyMatrix4(airplane.matrixWorld);
+      trooper.position.copy(dropWorldPos);
+
+      // Inherit airplane flight velocity vector
+      const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(airplane.quaternion);
+      const planeSpeed = flightState.speed;
+      const initialVelocity = forwardDir.clone().multiplyScalar(planeSpeed);
+
+      // Paratrooper physics state
+      trooper.userData = {
+        velocity: initialVelocity,
+        isDeployed: false,
+        isLanded: false,
+        timeSinceDrop: 0,
+        deployDelay: 0.75, // Static line chute opens after ~0.75s
+        swingAngle: 0
+      };
+
+      scene.add(trooper);
+      paratroopers.push(trooper);
+    }
+
+    // ==========================================
+    // FLIGHT PHYSICS & STATE
+    // ==========================================
+    const flightState = {
+      speed: 85,          // Forward speed in units/sec (~310 km/h)
+      minSpeed: 45,
+      maxSpeed: 140,
+      throttle: 0.72,
+      pitchRate: 0,
+      rollRate: 0,
+      yawRate: 0,
+      altitude: 480,
+      fuel: 100,          // Percentage of fuel remaining
+      isCrashed: false,
+      windVector: new THREE.Vector3(3.5, 0, -1.0), // Wind drift
+      windSpeedKmH: 14
+    };
+
+    function resetToAirfield() {
+      flightState.isCrashed = false;
+      flightState.speed = 85;
+      flightState.throttle = 0.72;
+      flightState.fuel = 100;
+      flightState.pitchRate = 0;
+      flightState.rollRate = 0;
+      flightState.yawRate = 0;
+      paratroopersRemaining = 40;
+
+      airplane.position.set(0, 420, 3200);
+      airplane.rotation.set(0, Math.PI, 0); // Heading North (towards -Z drop zones)
+
+      document.getElementById('crash-overlay').style.display = 'none';
+      showToast("✈️ UZUPEŁNIONO PALIWO I SKOCZKÓW! START Z BAZY!", "#00ff66");
+      updateHUD();
+    }
+
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      const code = e.code;
+      keys[code] = true;
+
+      // Drop on 'F' key
+      if (code === 'KeyF' && !flightState.isCrashed) {
+        dropParatrooper();
+      }
+
+      // Return to airfield / resupply on 'B' key
+      if (code === 'KeyB') {
+        resetToAirfield();
+      }
+
+      // Reload cargo on 'R' key
+      if (code === 'KeyR' && !flightState.isCrashed) {
+        paratroopersRemaining = 40;
+        showToast("📦 ŁADUNEK UZUPEŁNIONY: 40 SKOCZKÓW GOTOWYCH!", "#7aff85");
+        updateHUD();
+      }
+
+      // Camera toggle on 'C' key
+      if (code === 'KeyC') {
+        toggleCamera();
+      }
+
+      // Audio toggle on 'M' key
+      if (code === 'KeyM') {
+        toggleAudioState();
+      }
+    });
+
+    document.getElementById('crash-restart-btn').addEventListener('click', () => {
+      resetToAirfield();
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    // Continuous drop if 'F' is held
+    let dropCooldown = 0;
+
+    // Drop button click
+    const dropBtn = document.getElementById('drop-action-btn');
+    dropBtn.addEventListener('mousedown', () => {
+      dropParatrooper();
+    });
+    dropBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      dropParatrooper();
+    });
+
+    // Camera views: 0 = Chase cam, 1 = Cargo Ramp view, 2 = Cockpit/Flyby
+    let cameraMode = 0;
+    const camNames = ['ZEWNĘTRZNA (POŚCIGOWA)', 'RAMPA ŁADUNKOWA (JUMP CAM)', 'KOKPIT C-130'];
+
+    function toggleCamera() {
+      cameraMode = (cameraMode + 1) % 3;
+      document.getElementById('btn-cam').innerText = `KAMERA [C]: ${camNames[cameraMode]}`;
+    }
+    document.getElementById('btn-cam').addEventListener('click', toggleCamera);
+
+    function toggleAudioState() {
+      const on = sound.toggleAudio();
+      document.getElementById('btn-audio').innerText = `DŹWIĘK: ${on ? 'WŁĄCZONY' : 'WYCISZONY'}`;
+    }
+    document.getElementById('btn-audio').addEventListener('click', toggleAudioState);
+
+    // Toast notification helper
+    let toastTimeout = null;
+    function showToast(text, color) {
+      const toast = document.getElementById('toast-msg');
+      toast.innerText = text;
+      if (color) toast.style.color = color;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3500);
+    }
+
+    // ==========================================
+    // MINIMAP RADAR CANVAS
+    // ==========================================
+    const radarCanvas = document.getElementById('radar-canvas');
+    const rCtx = radarCanvas.getContext('2d');
+
+    function updateRadar() {
+      const w = radarCanvas.width;
+      const h = radarCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const radarScale = 0.016; // World to radar ratio
+
+      rCtx.clearRect(0, 0, w, h);
+
+      // Radar sweep background rings
+      rCtx.strokeStyle = 'rgba(80, 255, 120, 0.25)';
+      rCtx.lineWidth = 1;
+      rCtx.beginPath();
+      rCtx.arc(cx, cy, 35, 0, Math.PI * 2);
+      rCtx.arc(cx, cy, 65, 0, Math.PI * 2);
+      rCtx.stroke();
+
+      // Crosshairs
+      rCtx.beginPath();
+      rCtx.moveTo(cx, 0); rCtx.lineTo(cx, h);
+      rCtx.moveTo(0, cy); rCtx.lineTo(w, cy);
+      rCtx.stroke();
+
+      // Draw Drop Zones
+      dropZones.forEach((dz, idx) => {
+        const relX = (dz.position.x - airplane.position.x) * radarScale;
+        const relZ = (dz.position.z - airplane.position.z) * radarScale;
+        const mapX = cx + relX;
+        const mapY = cy + relZ;
+
+        if (mapX >= 0 && mapX <= w && mapY >= 0 && mapY <= h) {
+          // Blinking DZ dot
+          rCtx.fillStyle = idx === currentDZIndex ? '#00ff66' : '#ffaa00';
+          rCtx.beginPath();
+          rCtx.arc(mapX, mapY, idx === currentDZIndex ? 5 : 3.5, 0, Math.PI * 2);
+          rCtx.fill();
+
+          // Label
+          rCtx.fillStyle = '#afffc0';
+          rCtx.font = '9px monospace';
+          rCtx.fillText(dz.id, mapX + 6, mapY + 3);
+        }
+      });
+
+      // Draw Airfield Base on Radar
+      const baseRelX = (0 - airplane.position.x) * radarScale;
+      const baseRelZ = (3000 - airplane.position.z) * radarScale;
+      const baseMapX = cx + baseRelX;
+      const baseMapY = cy + baseRelZ;
+      if (baseMapX >= 0 && baseMapX <= w && baseMapY >= 0 && baseMapY <= h) {
+        rCtx.fillStyle = '#00e1ff';
+        rCtx.fillRect(baseMapX - 4, baseMapY - 8, 8, 16);
+        rCtx.fillStyle = '#88ffff';
+        rCtx.font = '9px monospace';
+        rCtx.fillText('BAZA', baseMapX + 6, baseMapY + 3);
+      }
+
+      // Draw C-130 Airplane in center with heading indicator
+      rCtx.save();
+      rCtx.translate(cx, cy);
+      // Plane rotation relative to north
+      const planeHeading = Math.atan2(
+        -airplane.matrixWorld.elements[8],
+        -airplane.matrixWorld.elements[10]
+      );
+      rCtx.rotate(-planeHeading);
+
+      // Airplane icon
+      rCtx.fillStyle = '#ffffff';
+      rCtx.beginPath();
+      rCtx.moveTo(0, -9);
+      rCtx.lineTo(7, 5);
+      rCtx.lineTo(0, 2);
+      rCtx.lineTo(-7, 5);
+      rCtx.closePath();
+      rCtx.fill();
+      rCtx.restore();
+    }
+
+    // ==========================================
+    // HUD REFRESH
+    // ==========================================
+    const valSpeed = document.getElementById('val-speed');
+    const valAlt = document.getElementById('val-alt');
+    const valThrottle = document.getElementById('val-throttle');
+    const valFuel = document.getElementById('val-fuel');
+    const valWind = document.getElementById('val-wind');
+    const valParatroopers = document.getElementById('val-paratroopers');
+    const valScore = document.getElementById('val-score');
+    const valPoints = document.getElementById('val-points');
+    const dzBanner = document.getElementById('dz-banner');
+    const dzName = document.getElementById('dz-name');
+    const dzSignal = document.getElementById('dz-signal');
+    const dzDistance = document.getElementById('dz-distance');
+    const hudHorizon = document.getElementById('hud-horizon');
+
+    const predictedLandingPos = new THREE.Vector3(0, 0, 0);
+
+    function updateHUD() {
+      const speedKmh = Math.round(flightState.speed * 3.6);
+      const groundH = getTerrainHeight(airplane.position.x, airplane.position.z);
+      const radarAltM = Math.max(0, Math.round(airplane.position.y - groundH));
+      valSpeed.innerHTML = `${speedKmh} <span>km/h</span>`;
+      valAlt.innerHTML = `${radarAltM} <span>m AGL</span>`;
+      valThrottle.innerText = `${Math.round(flightState.throttle * 100)}%`;
+      if (valFuel) {
+        valFuel.innerHTML = `${Math.round(flightState.fuel)}%`;
+        valFuel.style.color = flightState.fuel < 20 ? '#ff4444' : '#a4ffad';
+      }
+      valWind.innerHTML = `${flightState.windSpeedKmH} <span>km/h ➔</span>`;
+      valParatroopers.innerHTML = `${paratroopersRemaining} <span>SKOCZKÓW</span>`;
+      
+      const rate = landedParatroopers > 0 ? Math.round((totalScore / (landedParatroopers * 100)) * 100) : 0;
+      valScore.innerHTML = `${landedParatroopers} <span>(${rate}%)</span>`;
+      valPoints.innerText = totalScore;
+
+      // Update artificial horizon pitch & roll
+      const euler = new THREE.Euler().setFromQuaternion(airplane.quaternion, 'YXZ');
+      const pitchDeg = THREE.MathUtils.radToDeg(euler.x);
+      const rollDeg = THREE.MathUtils.radToDeg(euler.z);
+      hudHorizon.setAttribute('transform', `translate(100, ${100 - pitchDeg * 1.8}) rotate(${rollDeg})`);
+
+      // Current Drop Zone calculations
+      const activeDZ = dropZones[currentDZIndex];
+      if (activeDZ) {
+        const distToDZ = airplane.position.distanceTo(activeDZ.position);
+        
+        dzName.innerText = `CEL: ${activeDZ.name}`;
+        dzDistance.innerText = `DYSTANS: ${Math.round(distToDZ)} m | PROMIEŃ DZ: ${activeDZ.radiusBullseye}m`;
+
+        // Check if projected drop impact lands inside DZ
+        const distPredictToDZ = new THREE.Vector2(predictedLandingPos.x, predictedLandingPos.z).distanceTo(
+          new THREE.Vector2(activeDZ.position.x, activeDZ.position.z)
+        );
+
+        if (distPredictToDZ <= activeDZ.radiusBullseye) {
+          dzBanner.className = 'hud-box green-light';
+          dzSignal.innerHTML = '🟢 CEL IDEALNY (BULLSEYE)! ZRZUT DESANTU [F]!';
+          impactReticleMat.color.setHex(0x00ff55);
+        } else if (distPredictToDZ <= activeDZ.radiusInner) {
+          dzBanner.className = 'hud-box green-light';
+          dzSignal.innerHTML = '🟢 ZIELONE ŚWIATŁO - DOBRY PUNKT ZRZUTU [F]';
+          impactReticleMat.color.setHex(0x33ddff);
+        } else if (distPredictToDZ <= activeDZ.radiusOuter) {
+          dzBanner.className = 'hud-box';
+          dzSignal.innerHTML = '🟡 KORYGUJ KURS I WIATR NA ŚRODEK STREFY...';
+          impactReticleMat.color.setHex(0xffbb33);
+        } else if (distToDZ < 1400) {
+          dzBanner.className = 'hud-box red-light';
+          dzSignal.innerHTML = '🔴 ZBLIŻANIE: WYCELUJ ZNACZNIK W STREFĘ ZRZUTU';
+          impactReticleMat.color.setHex(0xff4444);
+        } else {
+          dzBanner.className = 'hud-box red-light';
+          dzSignal.innerHTML = '🔴 CZERWONE ŚWIATŁO - NA DOLOCIE DO CELU';
+          impactReticleMat.color.setHex(0x66ff88);
+        }
+      } else {
+        dzName.innerText = 'MISJA UKOŃCZONA!';
+        dzSignal.innerText = 'WSZYSTKIE STREFY ZRZUTU ZALICZONE';
+        dzBanner.className = 'hud-box green-light';
+      }
+    }
+
+    // ==========================================
+    // MAIN GAME LOOP & UPDATES
+    // ==========================================
+    let lastTime = performance.now();
+
+    function animate(currentTime) {
+      requestAnimationFrame(animate);
+
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+      lastTime = currentTime;
+
+      // 1. Flight Controls & Dynamics
+      if (!flightState.isCrashed) {
+        // Fuel consumption
+        flightState.fuel = Math.max(0, flightState.fuel - 0.45 * flightState.throttle * dt);
+        if (flightState.fuel <= 0) {
+          flightState.throttle = Math.max(0.1, flightState.throttle - 0.2 * dt);
+        }
+
+        // Throttle
+        if (keys['ShiftLeft'] || keys['ShiftRight']) {
+          flightState.throttle = Math.min(1.0, flightState.throttle + 0.3 * dt);
+        }
+        if (keys['ControlLeft'] || keys['KeyZ']) {
+          flightState.throttle = Math.max(0.3, flightState.throttle - 0.3 * dt);
+        }
+        flightState.speed = flightState.minSpeed + (flightState.maxSpeed - flightState.minSpeed) * flightState.throttle;
+
+        // Elevator (Pitch: W / S or ArrowUp / ArrowDown)
+        // S/Down = pull back (climb/nose UP), W/Up = push forward (descend/nose DOWN)
+        if (keys['KeyW'] || keys['ArrowUp']) flightState.pitchRate = THREE.MathUtils.lerp(flightState.pitchRate, -0.7, 5 * dt);
+        else if (keys['KeyS'] || keys['ArrowDown']) flightState.pitchRate = THREE.MathUtils.lerp(flightState.pitchRate, 0.7, 5 * dt);
+        else flightState.pitchRate = THREE.MathUtils.lerp(flightState.pitchRate, 0, 4 * dt);
+
+        // Ailerons (Roll: A / D or ArrowLeft / ArrowRight)
+        // A/Left = roll LEFT, D/Right = roll RIGHT
+        if (keys['KeyA'] || keys['ArrowLeft']) flightState.rollRate = THREE.MathUtils.lerp(flightState.rollRate, -1.2, 5 * dt);
+        else if (keys['KeyD'] || keys['ArrowRight']) flightState.rollRate = THREE.MathUtils.lerp(flightState.rollRate, 1.2, 5 * dt);
+        else flightState.rollRate = THREE.MathUtils.lerp(flightState.rollRate, 0, 4 * dt);
+
+        // Rudder (Yaw: Q / E)
+        // Q = yaw LEFT (positive Y in Three.js where forward is -Z), E = yaw RIGHT (negative Y)
+        if (keys['KeyQ']) flightState.yawRate = THREE.MathUtils.lerp(flightState.yawRate, 0.5, 4 * dt);
+        else if (keys['KeyE']) flightState.yawRate = THREE.MathUtils.lerp(flightState.yawRate, -0.5, 4 * dt);
+        else flightState.yawRate = THREE.MathUtils.lerp(flightState.yawRate, 0, 4 * dt);
+
+        // Aerodynamic bank-to-turn coupling: banking right rolls +Z, causes yaw right (-Y); banking left causes yaw left (+Y)
+        const currentEuler = new THREE.Euler().setFromQuaternion(airplane.quaternion, 'YXZ');
+        flightState.yawRate += -currentEuler.z * 0.75;
+
+        // Apply rotations to aircraft
+        airplane.rotateX(flightState.pitchRate * dt);
+        airplane.rotateZ(flightState.rollRate * dt);
+        airplane.rotateY(flightState.yawRate * dt);
+
+        // Level out roll slightly when no steering input
+        if (!keys['KeyA'] && !keys['KeyD'] && !keys['ArrowLeft'] && !keys['ArrowRight']) {
+          airplane.rotation.z *= 0.985;
+        }
+
+        // Move aircraft forward along its local Z axis
+        const forwardMovement = new THREE.Vector3(0, 0, -1).applyQuaternion(airplane.quaternion).multiplyScalar(flightState.speed * dt);
+        airplane.position.add(forwardMovement);
+
+        // Collision & Terrain Altitude Check
+        const terrainH = getTerrainHeight(airplane.position.x, airplane.position.z);
+        const clearance = airplane.position.y - terrainH;
+
+        // Check if plane is in airport runway zone
+        const distToAirfield = Math.sqrt(
+          Math.pow(airplane.position.x, 2) + Math.pow(airplane.position.z - 3000, 2)
+        );
+
+        // Runway Landing & Resupply
+        if (distToAirfield < 1000 && Math.abs(airplane.position.x) < 80) {
+          if (clearance <= 8 && clearance >= 0 && flightState.speed <= 65) {
+            // Smooth touchdown on runway
+            airplane.position.y = terrainH + 4;
+            flightState.speed = THREE.MathUtils.lerp(flightState.speed, 0, 1.5 * dt);
+            if (flightState.fuel < 100 || paratroopersRemaining < 40) {
+              flightState.fuel = Math.min(100, flightState.fuel + 25 * dt);
+              paratroopersRemaining = Math.min(40, paratroopersRemaining + 10 * dt);
+              showToast("⛽ BAZA: TANKOWANIE I ZAŁADUNEK DESANTU...", "#00ffcc");
+            }
+          }
+        }
+
+        // Crash if altitude is too low over hills, mountains or outside safe landing
+        if (clearance <= 3.5) {
+          const isSafeLanding = distToAirfield < 1100 && Math.abs(airplane.position.x) < 70 && flightState.speed < 68 && Math.abs(currentEuler.z) < 0.25;
+          if (!isSafeLanding) {
+            flightState.isCrashed = true;
+            sound.playCrash();
+            document.getElementById('crash-overlay').style.display = 'flex';
+            document.getElementById('crash-reason').innerHTML = `
+              C-130 rozbił się o zbocze terenu (Wysokość: ${Math.round(terrainH)}m)!<br>
+              Zbyt niski pułap lub zbyt strome podejście.
+            `;
+            // Spawn explosion smoke
+            for (let k = 0; k < 15; k++) {
+              spawnSmokeParticle(airplane.position, 0xff2200);
+            }
+          }
+        }
+      }
+
+      airplane.updateMatrixWorld(true);
+
+      // Trajectory Prediction for Paratroopers
+      const currentAlt = Math.max(1, airplane.position.y);
+      const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(airplane.quaternion);
+      const planeSpeed = flightState.speed;
+
+      // Freefall phase (~0.75s)
+      const freefallTime = 0.75;
+      const freefallDistForward = planeSpeed * freefallTime * 0.9;
+      // Canopy descent phase (~7.5 m/s)
+      const canopyTime = Math.max(0, (currentAlt - 7) / 7.5);
+      // Horizontal decay of forward momentum under canopy
+      const canopyForwardDist = (planeSpeed * 0.35) * 1.5;
+      const totalForwardDist = freefallDistForward + canopyForwardDist;
+
+      // Wind drift during descent
+      const windDriftX = flightState.windVector.x * 2.5 * canopyTime;
+      const windDriftZ = flightState.windVector.z * 2.5 * canopyTime;
+
+      predictedLandingPos.set(
+        airplane.position.x + forwardDir.x * totalForwardDist + windDriftX,
+        2.5,
+        airplane.position.z + forwardDir.z * totalForwardDist + windDriftZ
+      );
+
+      impactReticle.position.copy(predictedLandingPos);
+      impactReticle.rotation.y += 1.5 * dt;
+
+      // Continuous drop if 'F' held down
+      if (keys['KeyF'] && !flightState.isCrashed) {
+        dropCooldown += dt;
+        if (dropCooldown > 0.18) { // Salvo drop cadence
+          dropParatrooper();
+          dropCooldown = 0;
+        }
+      } else {
+        dropCooldown = 0.2;
+      }
+
+      // 2. Animate 4 Propellers
+      const propSpeed = 22 + flightState.throttle * 30;
+      propellers.forEach(prop => {
+        prop.rotation.z += propSpeed * dt;
+      });
+
+      // Sound update
+      sound.updateEnginePitch(flightState.throttle);
+
+      // 3. Drop Zone Smoke Particles & Beacon pulse
+      dropZones.forEach(dz => {
+        // Emit smoke constantly from active drop zones
+        if (Math.random() < 0.35) {
+          spawnSmokeParticle(dz.position, dz.color);
+        }
+        if (dz.beaconLight) {
+          dz.beaconLight.intensity = 0.8 + Math.sin(currentTime * 0.005) * 0.8;
+        }
+      });
+
+      // Update smoke particles
+      for (let i = smokeParticles.length - 1; i >= 0; i--) {
+        const p = smokeParticles[i];
+        const data = p.userData;
+        data.age += dt;
+        p.position.y += data.vy * dt;
+        p.position.x += (data.vx + flightState.windVector.x) * dt;
+        p.position.z += (data.vz + flightState.windVector.z) * dt;
+        p.scale.multiplyScalar(1 + data.grow * dt);
+        p.material.opacity = (1 - data.age / data.maxLife) * 0.55;
+        p.lookAt(camera.position);
+
+        if (data.age >= data.maxLife) {
+          scene.remove(p);
+          p.geometry.dispose();
+          p.material.dispose();
+          smokeParticles.splice(i, 1);
+        }
+      }
+
+      // 4. Update Paratroopers (Falling & Parachute Physics)
+      for (let i = paratroopers.length - 1; i >= 0; i--) {
+        const t = paratroopers[i];
+        const u = t.userData;
+
+        if (u.isLanded) continue;
+
+        u.timeSinceDrop += dt;
+
+        // Deploy parachute after delay
+        if (!u.isDeployed && u.timeSinceDrop >= u.deployDelay) {
+          u.isDeployed = true;
+          t.canopyGroup.visible = true;
+          sound.playChuteDeploy();
+        }
+
+        if (!u.isDeployed) {
+          // Free fall: rapid descent, slowing forward momentum
+          u.velocity.y -= 25 * dt; // gravity
+          u.velocity.x *= 0.98;
+          u.velocity.z *= 0.98;
+          t.rotation.x = Math.sin(u.timeSinceDrop * 10) * 0.2;
+        } else {
+          // Under canopy: terminal descent speed ~6-8 m/s, wind drift applied
+          const terminalDescent = -7.5;
+          u.velocity.y = THREE.MathUtils.lerp(u.velocity.y, terminalDescent, 3.5 * dt);
+          // Wind pushes paratrooper
+          u.velocity.x = THREE.MathUtils.lerp(u.velocity.x, flightState.windVector.x * 2.5, 1.5 * dt);
+          u.velocity.z = THREE.MathUtils.lerp(u.velocity.z, flightState.windVector.z * 2.5, 1.5 * dt);
+
+          // Gentle canopy swing
+          u.swingAngle += dt * 2.5;
+          t.rotation.z = Math.sin(u.swingAngle) * 0.12;
+          t.rotation.x = Math.cos(u.swingAngle * 0.8) * 0.08;
+        }
+
+        // Apply velocity to position
+        t.position.addScaledVector(u.velocity, dt);
+
+        // Ground touchdown detection
+        if (t.position.y <= 0) {
+          t.position.y = 0;
+          u.isLanded = true;
+          t.rotation.set(0, 0, 0);
+          // Canopy collapse on ground
+          t.canopyGroup.position.set(1.5, 0.4, 1.2);
+          t.canopyGroup.scale.set(1.2, 0.15, 1.2);
+
+          // Evaluate landing score against active Drop Zone
+          const activeDZ = dropZones[currentDZIndex];
+          if (activeDZ) {
+            const hitDist = new THREE.Vector2(t.position.x, t.position.z).distanceTo(
+              new THREE.Vector2(activeDZ.position.x, activeDZ.position.z)
+            );
+
+            landedParatroopers++;
+
+            if (hitDist <= activeDZ.radiusBullseye) {
+              totalScore += 100;
+              sound.playTouchdown(true);
+              showToast(`🎯 TRAFIENIE W DZIESIĄTKĘ! [${activeDZ.id}] +100 PKT!`, '#00ff66');
+              spawnSmokeParticle(t.position, 0x00ff44);
+            } else if (hitDist <= activeDZ.radiusInner) {
+              totalScore += 50;
+              sound.playTouchdown(false);
+              showToast(`🪂 UDANY ZRZUT W STREFIE! +50 PKT`, '#33ddff');
+              spawnSmokeParticle(t.position, 0x33ddff);
+            } else if (hitDist <= activeDZ.radiusOuter) {
+              totalScore += 25;
+              sound.playTouchdown(false);
+              showToast(`OBRZEŻA STREFY ZRZUTU: +25 PKT`, '#ffbb33');
+            } else {
+              showToast(`SKOCZEK ZNIÓSŁ SIĘ POZA STREFĘ! (Wiatr: ${Math.round(hitDist)}m od celu)`, '#ff5555');
+            }
+
+            // Check if player has passed the current DZ to progress to next
+            const planeDistZ = airplane.position.z - activeDZ.position.z;
+            if (planeDistZ < -800 && currentDZIndex < dropZones.length - 1) {
+              currentDZIndex++;
+              showToast(`➡️ KOLEJNY CEL: ${dropZones[currentDZIndex].name}`, '#afffc0');
+            }
+          }
+        }
+      }
+
+      // Check DZ progression based on plane position
+      const currentDZ = dropZones[currentDZIndex];
+      if (currentDZ && (airplane.position.z - currentDZ.position.z) < -1200 && currentDZIndex < dropZones.length - 1) {
+        currentDZIndex++;
+        showToast(`NASTĘPNY CEL: ${dropZones[currentDZIndex].name}!`, '#7aff85');
+      }
+
+      // 5. Camera positioning based on mode
+      if (cameraMode === 0) {
+        // Third person chase cam behind C-130
+        const camOffset = new THREE.Vector3(0, 16, 60);
+        camOffset.applyQuaternion(airplane.quaternion);
+        camera.position.copy(airplane.position).add(camOffset);
+        
+        const lookTarget = airplane.position.clone().add(
+          new THREE.Vector3(0, 4, -40).applyQuaternion(airplane.quaternion)
+        );
+        camera.lookAt(lookTarget);
+      } else if (cameraMode === 1) {
+        // Cargo Ramp Jump Cam (inside rear cargo looking down & back at jumpers!)
+        const rampPos = new THREE.Vector3(0, 1.2, 12).applyMatrix4(airplane.matrixWorld);
+        camera.position.copy(rampPos);
+        const lookBack = new THREE.Vector3(0, -5, 80).applyQuaternion(airplane.quaternion);
+        camera.lookAt(rampPos.clone().add(lookBack));
+      } else if (cameraMode === 2) {
+        // Cockpit view
+        const cockpitPos = new THREE.Vector3(0, 3.2, -14).applyMatrix4(airplane.matrixWorld);
+        camera.position.copy(cockpitPos);
+        const forwardLook = new THREE.Vector3(0, 1.5, -80).applyQuaternion(airplane.quaternion);
+        camera.lookAt(cockpitPos.clone().add(forwardLook));
+      }
+
+      // Update Sun position to follow aircraft for dynamic shadows
+      sunLight.position.set(airplane.position.x + 1200, airplane.position.y + 2200, airplane.position.z + 1500);
+      sunLight.target = airplane;
+
+      // Update HUD and Radar
+      updateHUD();
+      updateRadar();
+
+      renderer.render(scene, camera);
+    }
+
+    // Window resize handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start Button Click
+    document.getElementById('start-game-btn').addEventListener('click', () => {
+      sound.init();
+      document.getElementById('start-overlay').style.display = 'none';
+      lastTime = performance.now();
+      requestAnimationFrame(animate);
+    });
+  </script>
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>

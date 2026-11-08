@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Morski Kurier - Gra w dostarczanie ładunków statkiem</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- Główny Canvas Gry -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Powiadomienia w grze (Toast) -->
+    <div id="toast-container"></div>
+
+    <!-- HUD (Interfejs Użytkownika w czasie żeglugi) -->
+    <div id="hud-overlay">
+        
+        <!-- Pasek górny: Statystyki statku, złoto, ładownia -->
+        <div id="top-hud" class="hud-panel">
+            <div class="hud-stat" title="Twoje złoto">
+                <span class="hud-stat-icon">🪙</span>
+                <span id="hud-gold">150</span>
+            </div>
+
+            <div class="hud-stat" title="Prędkość statku w węzłach">
+                <span class="hud-stat-icon">🧭</span>
+                <span id="hud-speed">0.0 w.</span>
+            </div>
+
+            <div class="hud-stat" title="Stan wytrzymałości kadłuba">
+                <span class="hud-stat-icon">🛡️</span>
+                <div class="hud-bar-container">
+                    <div id="hud-hp-fill" class="hud-bar-fill"></div>
+                    <span id="hud-hp-text" class="hud-bar-text">100 / 100</span>
+                </div>
+            </div>
+
+            <div class="hud-stat" title="Ładownia (zajęte sloty)">
+                <span class="hud-stat-icon">📦</span>
+                <div id="hud-cargo-slots">
+                    <!-- Dynamiczne sloty generowane w JS -->
+                </div>
+            </div>
+
+            <button id="lights-toggle-btn" class="btn btn-sm btn-primary" title="Włącz / Wyłącz światła [F]" style="padding: 4px 8px; font-size: 14px;">💡</button>
+            <button id="mute-toggle-btn" class="btn btn-sm btn-primary" title="Włącz / Wycisz dźwięk" style="padding: 4px 8px; font-size: 14px;">🔊</button>
+        </div>
+
+        <!-- Prawy górny róg: Kompas, Kierunek Wiatru i Strzałka do Celu -->
+        <div id="compass-panel" class="hud-panel">
+            <div class="compass-dial">
+                <div id="compass-rose">
+                    <span class="compass-n">N</span>
+                    <span class="compass-e">E</span>
+                    <span class="compass-s">S</span>
+                    <span class="compass-w">W</span>
+                </div>
+                <!-- Strzałka nawigacyjna wskazująca cel aktywnej misji -->
+                <div id="mission-pointer-arrow" title="Kierunek do portu docelowego"></div>
+            </div>
+            <div class="wind-indicator" title="Kierunek i siła wiejącego wiatru">
+                <span>Wiatr:</span>
+                <span id="hud-wind-arrow">➔</span>
+                <span id="hud-wind-text">8 w.</span>
+            </div>
+        </div>
+
+        <!-- Panel aktywnych zleceń (prawy bok) -->
+        <div id="active-missions-panel" class="hud-panel">
+            <div class="no-missions-hint">Brak zleceń. Zawijaj do portów!</div>
+        </div>
+
+        <!-- Podpowiedź dokowania (pojawia się gdy jesteśmy w strefie portu) -->
+        <div id="dock-prompt" class="hidden">
+            ⚓ Naciśnij <strong>[SPACJA]</strong>, aby zawinąć do portu
+        </div>
+
+        <!-- Sterowanie dotykowe (na urządzenia mobilne) -->
+        <div id="touch-controls">
+            <button id="btn-left" class="touch-btn">◀</button>
+            <button id="btn-gas" class="touch-btn">▲</button>
+            <button id="btn-reverse" class="touch-btn">▼</button>
+            <button id="btn-right" class="touch-btn">▶</button>
+            <button id="btn-lights" class="touch-btn">💡</button>
+            <button id="btn-horn" class="touch-btn">📢</button>
+            <button id="btn-anchor" class="touch-btn">⚓</button>
+        </div>
+
+        <!-- Podpowiedź klawiszowa w lewym dolnym rogu -->
+        <div id="controls-hint" class="hud-panel">
+            <div><kbd>W</kbd> / <kbd>S</kbd> - Przód / Tył (Żagle)</div>
+            <div><kbd>A</kbd> / <kbd>D</kbd> - Ster lewo / prawo</div>
+            <div><kbd>SPACJA</kbd> - Zawinięcie do portu / Kotwica</div>
+            <div><kbd>F</kbd> - Światła | <kbd>H</kbd> - Róg | <kbd>M</kbd> - Mapa</div>
+        </div>
+
+        <!-- Minimapa w prawym dolnym rogu -->
+        <div id="minimap-container" class="hud-panel" title="Kliknij lub naciśnij [M] aby powiększyć mapę">
+            <canvas id="minimap-canvas" width="160" height="160"></canvas>
+            <div class="minimap-label">🗺️ ARCHIPELAG (M)</div>
+        </div>
+    </div>
+
+    <!-- EKRAN POWITALNY / START REJSU -->
+    <div id="welcome-modal" class="modal-overlay">
+        <div class="modal-window" style="max-width: 620px; text-align: center;">
+            <div class="modal-header" style="justify-content: center;">
+                <h2>⚓ MORSKI KURIER ⚓</h2>
+            </div>
+            <div class="modal-body" style="padding: 24px; text-align: left;">
+                <p style="font-size: 15px; margin-bottom: 16px; line-height: 1.5;">
+                    Witaj na wodach Archipelagu Siedmiu Mórz! Zostałeś kapitanem statku handlowego. Twoim zadaniem jest żeglowanie między wyspami i portami oraz dostarczanie ładunków.
+                </p>
+
+                <div style="background: rgba(0,0,0,0.04); border: 1px solid #d2b48c; border-radius: 8px; padding: 14px; margin-bottom: 18px;">
+                    <h4 style="margin-bottom: 8px; color: #8b5a2b;">🎯 Zasady żeglugi i handlu:</h4>
+                    <ul style="font-size: 13px; line-height: 1.6; padding-left: 20px; color: #444;">
+                        <li><strong>Zawijaj do portów:</strong> Podpłyń pod zielony pomost doku i wciśnij <kbd>SPACJA</kbd>.</li>
+                        <li><strong>Bierz zlecenia:</strong> W tawernie portowej czekają lukratywne kontrakty na transport towarów.</li>
+                        <li><strong>Dostarczaj na czas:</strong> Żegluj do portu docelowego według wskazówki na kompasie, by zgarnąć premię czasową!</li>
+                        <li><strong>Uważaj na rafy:</strong> Ostre skały i płycizny uszkadzają kadłub statku. Naprawiaj go w stoczni!</li>
+                        <li><strong>Rozwijaj flotę:</strong> Za zarobione złoto powiększaj ładownię, kupuj nowe żagle i większe galeony!</li>
+                    </ul>
+                </div>
+
+                <div style="background: #eef2f7; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px;">
+                    <strong>⌨️ Sterowanie:</strong><br>
+                    • <kbd>W</kbd> / <kbd>S</kbd> - Napęd żaglami (do przodu / wstecz)<br>
+                    • <kbd>A</kbd> / <kbd>D</kbd> - Zwrot steru (lewo / prawo)<br>
+                    • <kbd>SPACJA</kbd> - Zawinięcie do portu / Kotwica<br>
+                    • <kbd>F</kbd> - Światła okrętowe i reflektor dziobowy<br>
+                    • <kbd>H</kbd> - Syrena okrętowa (róg mgłowy)<br>
+                    • <kbd>M</kbd> - Mapa morska całego archipelagu
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="start-game-btn" class="btn btn-warning" style="font-size: 18px; padding: 14px 40px; border-radius: 30px; box-shadow: 0 4px 15px rgba(230,126,34,0.4);">
+                        Rozpocznij Rejs ⛵
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OKNO MODALNE: PORT & TAWERNA & RYNEK & STOCZNIA -->
+    <div id="port-modal" class="modal-overlay hidden">
+        <div class="modal-window">
+            <div class="modal-header">
+                <div>
+                    <h2 id="port-title">Port Królewski</h2>
+                    <p id="port-desc">Główny port handlowy</p>
+                </div>
+                <button id="close-port-modal" class="btn-close" title="Odbij od brzegu i wypłyń w morze">&times;</button>
+            </div>
+
+            <!-- Zakładki Portowe -->
+            <div class="port-tabs-nav">
+                <button class="port-tab-btn active" data-target="tab-contracts">📜 Zlecenia i Kontrakty</button>
+                <button class="port-tab-btn" data-target="tab-market">⚖️ Rynek Portowy</button>
+                <button class="port-tab-btn" data-target="tab-shipyard">🔨 Stocznia i Ulepszenia</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- ZAKŁADKA 1: KONTRAKTY -->
+                <div id="tab-contracts" class="port-tab-pane active">
+                    <p style="margin-bottom: 14px; font-size: 13px; color: #555;">
+                        Wybierz zlecenia dostawy ładunków do innych wysp. Po dostarczeniu towaru otrzymasz wypłatę w złocie oraz premię za szybki czas!
+                    </p>
+                    <div id="contracts-list" class="contracts-grid">
+                        <!-- Zlecenia generowane z JS -->
+                    </div>
+                </div>
+
+                <!-- ZAKŁADKA 2: RYNEK -->
+                <div id="tab-market" class="port-tab-pane">
+                    <p style="margin-bottom: 12px; font-size: 13px; color: #555;">
+                        Kupuj towary w portach, które je produkują (taniej) i sprzedawaj w miastach o dużym popycie (z dużym zyskiem)!
+                    </p>
+                    <div class="market-row-header">
+                        <span style="flex: 3;">Towar</span>
+                        <span style="flex: 1.2; text-align: center;">Dostępność</span>
+                        <span style="flex: 1.2; text-align: center;">Cena kupna</span>
+                        <span style="flex: 1.2; text-align: center;">Cena skupu</span>
+                        <span style="flex: 1.5; text-align: right;">Akcja</span>
+                    </div>
+                    <div id="market-items-list" class="market-table">
+                        <!-- Towary z JS -->
+                    </div>
+
+                    <!-- Ładunek na Twoim statku do sprzedaży -->
+                    <div class="cargo-sell-section">
+                        <h4>📦 Ładunek na Twoim statku (Kliknij, aby sprzedać w tym porcie):</h4>
+                        <div id="ship-cargo-sell-list" class="cargo-sell-chips">
+                            <span class="text-muted">Twoja ładownia jest pusta.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZAKŁADKA 3: STOCZNIA -->
+                <div id="tab-shipyard" class="port-tab-pane">
+                    <!-- Naprawa kadłuba -->
+                    <div class="shipyard-section">
+                        <h3>🛠️ Warsztat szkutniczy (Naprawa)</h3>
+                        <div class="shipyard-repair-box">
+                            <div id="shipyard-repair-info">Stan kadłuba: 100 / 100 HP</div>
+                            <button id="shipyard-repair-btn" class="btn btn-success">Napraw kadłub</button>
+                        </div>
+                    </div>
+
+                    <!-- Ulepszenia wyposażenia -->
+                    <div class="shipyard-section">
+                        <h3>⚙️ Ulepszenia statku</h3>
+                        <div id="ship-upgrades-list" class="upgrades-list">
+                            <!-- Ulepszenia z JS -->
+                        </div>
+                    </div>
+
+                    <!-- Zakup nowych statków -->
+                    <div class="shipyard-section">
+                        <h3>⛵ Nowe Statki we Flocie</h3>
+                        <div id="new-ships-catalog" class="new-ships-grid">
+                            <!-- Statki z JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OKNO MODALNE: PEŁNA MAPA ARCHIPELAGU -->
+    <div id="expanded-map-modal" class="modal-overlay hidden">
+        <div class="modal-window">
+            <div class="modal-header">
+                <h2>🗺️ Mapa Nawigacyjna Archipelagu</h2>
+                <button class="btn-close" onclick="window.game.toggleExpandedMap()">&times;</button>
+            </div>
+            <div class="modal-body" style="display: flex; justify-content: center; align-items: center; padding: 15px;">
+                <canvas id="full-map-canvas" width="760" height="560"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skrypty gry -->
+    <script src="js/audio.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/ship.js"></script>
+    <script src="js/economy.js"></script>
+    <script src="js/weather.js"></script>
+    <script src="js/game.js"></script>
+
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>
