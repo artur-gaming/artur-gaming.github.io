@@ -1712,12 +1712,14 @@ const PlaneModels = {
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x64748b, // Tactical grey
       roughness: 0.45,
-      metalness: 0.25
+      metalness: 0.25,
+      side: THREE.DoubleSide
     });
     const darkBodyMat = new THREE.MeshStandardMaterial({
       color: 0x334155, // Dark grey spine & LERX
       roughness: 0.5,
-      metalness: 0.3
+      metalness: 0.3,
+      side: THREE.DoubleSide
     });
     const radomeMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
@@ -1757,10 +1759,10 @@ const PlaneModels = {
 
     // Radome pointed nose
     const noseGeo = new THREE.ConeGeometry(0.48, 2.8, 14);
-    noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.rotateX(Math.PI / 2);
     noseGeo.scale(1.1, 0.8, 1.0);
     const nose = new THREE.Mesh(noseGeo, radomeMat);
-    nose.position.set(0, -0.02, 5.4);
+    nose.position.set(0, -0.02, 5.6);
     group.add(nose);
 
     // Pitot tube at nose tip
@@ -1769,7 +1771,7 @@ const PlaneModels = {
       metalMat
     );
     pitot.rotation.x = Math.PI / 2;
-    pitot.position.set(0, -0.02, 7.1);
+    pitot.position.set(0, -0.02, 7.4);
     group.add(pitot);
 
     // 2. Ventral Air Intake (chin scoop underneath)
@@ -1855,7 +1857,7 @@ const PlaneModels = {
         new THREE.ConeGeometry(0.06, 0.3, 8),
         metalMat
       );
-      seeker.rotation.x = -Math.PI / 2;
+      seeker.rotation.x = Math.PI / 2;
       seeker.position.z = 1.15;
       mGroup.add(seeker);
 
@@ -1925,7 +1927,7 @@ const PlaneModels = {
     stabShape.lineTo(0, -1.8);
     stabShape.closePath();
 
-    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06, bevelEnabled: false });
     stabGeo.translate(0, 0, -0.03);
     stabGeo.rotateX(Math.PI / 2);
 
@@ -1987,12 +1989,14 @@ const PlaneModels = {
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x94a3b8, // Light ghost grey
       roughness: 0.4,
-      metalness: 0.3
+      metalness: 0.3,
+      side: THREE.DoubleSide
     });
     const darkMat = new THREE.MeshStandardMaterial({
       color: 0x475569, // Dark ghost grey
       roughness: 0.5,
-      metalness: 0.35
+      metalness: 0.35,
+      side: THREE.DoubleSide
     });
     const radomeMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
@@ -2025,10 +2029,10 @@ const PlaneModels = {
 
     // Pointed radome nose
     const noseGeo = new THREE.ConeGeometry(0.55, 3.2, 12);
-    noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.rotateX(Math.PI / 2);
     noseGeo.scale(1.2, 0.8, 1.0);
     const nose = new THREE.Mesh(noseGeo, radomeMat);
-    nose.position.set(0, -0.02, 5.6);
+    nose.position.set(0, -0.02, 5.8);
     group.add(nose);
 
     // 2. Cockpit Canopy
@@ -2054,7 +2058,7 @@ const PlaneModels = {
     lerxShape.lineTo(0, -1.5);
     lerxShape.closePath();
 
-    const lerxGeo = new THREE.ExtrudeGeometry(lerxShape, { depth: 0.1 });
+    const lerxGeo = new THREE.ExtrudeGeometry(lerxShape, { depth: 0.1, bevelEnabled: false });
     lerxGeo.translate(0, 0, -0.05);
     lerxGeo.rotateX(Math.PI / 2);
 
@@ -2129,7 +2133,7 @@ const PlaneModels = {
     finShape.lineTo(-1.6, 0);
     finShape.closePath();
 
-    const vFinGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    const vFinGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: false });
     vFinGeo.translate(0, 0, -0.04);
     vFinGeo.rotateY(-Math.PI / 2);
 
@@ -2151,7 +2155,7 @@ const PlaneModels = {
     stabShape.lineTo(0, -1.8);
     stabShape.closePath();
 
-    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06, bevelEnabled: false });
     stabGeo.translate(0, 0, -0.03);
     stabGeo.rotateX(Math.PI / 2);
 
@@ -2213,12 +2217,14 @@ const PlaneModels = {
     const stealthMat = new THREE.MeshStandardMaterial({
       color: 0x334155, // Stealth gunmetal
       roughness: 0.35,
-      metalness: 0.5
+      metalness: 0.5,
+      side: THREE.DoubleSide
     });
     const stealthLightMat = new THREE.MeshStandardMaterial({
       color: 0x475569, // Lighter stealth tone for wing edges
       roughness: 0.3,
-      metalness: 0.45
+      metalness: 0.45,
+      side: THREE.DoubleSide
     });
     const metalMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
@@ -2240,11 +2246,11 @@ const PlaneModels = {
 
     // 1. Faceted Diamond Nose & Chine Line
     const noseGeo = new THREE.ConeGeometry(0.7, 3.8, 4);
-    noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.rotateX(Math.PI / 2);
     noseGeo.rotateZ(Math.PI / 4); // Faceted diamond cross-section!
     noseGeo.scale(1.5, 0.65, 1.0);
     const nose = new THREE.Mesh(noseGeo, stealthMat);
-    nose.position.set(0, -0.05, 5.2);
+    nose.position.set(0, -0.05, 5.4);
     group.add(nose);
 
     // Main blended faceted body
@@ -2314,7 +2320,7 @@ const PlaneModels = {
     finShape.lineTo(-2.2, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: false });
     finGeo.translate(0, 0, -0.04);
     finGeo.rotateY(-Math.PI / 2);
 
@@ -2336,7 +2342,7 @@ const PlaneModels = {
     stabShape.lineTo(0, -2.2);
     stabShape.closePath();
 
-    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06, bevelEnabled: false });
     stabGeo.translate(0, 0, -0.03);
     stabGeo.rotateX(Math.PI / 2);
 
@@ -2392,12 +2398,14 @@ const PlaneModels = {
     const stealthMat = new THREE.MeshStandardMaterial({
       color: 0x475569, // Modern 5th-gen slate stealth
       roughness: 0.35,
-      metalness: 0.4
+      metalness: 0.4,
+      side: THREE.DoubleSide
     });
     const darkStealthMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
       roughness: 0.4,
-      metalness: 0.45
+      metalness: 0.45,
+      side: THREE.DoubleSide
     });
     const metalMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
@@ -2426,10 +2434,10 @@ const PlaneModels = {
 
     // Pointed faceted chine nose
     const noseGeo = new THREE.ConeGeometry(0.68, 3.4, 6);
-    noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.rotateX(Math.PI / 2);
     noseGeo.scale(1.3, 0.75, 1.0);
     const nose = new THREE.Mesh(noseGeo, darkStealthMat);
-    nose.position.set(0, -0.04, 5.4);
+    nose.position.set(0, -0.04, 5.6);
     group.add(nose);
 
     // 2. DSI (Diverterless Supersonic Intake) 3D compression bumps & side scoops
@@ -2505,7 +2513,7 @@ const PlaneModels = {
     finShape.lineTo(-1.9, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: false });
     finGeo.translate(0, 0, -0.04);
     finGeo.rotateY(-Math.PI / 2);
 
@@ -2534,7 +2542,7 @@ const PlaneModels = {
     stabShape.lineTo(0, -1.9);
     stabShape.closePath();
 
-    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06, bevelEnabled: false });
     stabGeo.translate(0, 0, -0.03);
     stabGeo.rotateX(Math.PI / 2);
 
@@ -2582,12 +2590,14 @@ const PlaneModels = {
     const camoMat = new THREE.MeshStandardMaterial({
       color: 0x3b82f6, // Flanker air-superiority blue-grey
       roughness: 0.5,
-      metalness: 0.25
+      metalness: 0.25,
+      side: THREE.DoubleSide
     });
     const darkCamoMat = new THREE.MeshStandardMaterial({
       color: 0x1d4ed8, // Dark camouflage patches
       roughness: 0.55,
-      metalness: 0.3
+      metalness: 0.3,
+      side: THREE.DoubleSide
     });
     const radomeMat = new THREE.MeshStandardMaterial({
       color: 0xf8fafc, // White radome
@@ -2620,10 +2630,10 @@ const PlaneModels = {
 
     // Drooping radome needle nose
     const noseGeo = new THREE.ConeGeometry(0.55, 3.6, 12);
-    noseGeo.rotateX(-Math.PI / 2);
-    noseGeo.rotateX(-0.06); // Characteristic Flanker nose droop
+    noseGeo.rotateX(Math.PI / 2);
+    noseGeo.rotateX(0.06); // Characteristic Flanker nose droop
     const nose = new THREE.Mesh(noseGeo, radomeMat);
-    nose.position.set(0, -0.15, 6.2);
+    nose.position.set(0, -0.15, 6.4);
     group.add(nose);
 
     // 2. Cockpit Canopy
@@ -2713,7 +2723,7 @@ const PlaneModels = {
     finShape.lineTo(-1.8, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: false });
     finGeo.translate(0, 0, -0.04);
     finGeo.rotateY(-Math.PI / 2);
 
@@ -2738,7 +2748,7 @@ const PlaneModels = {
     stabShape.lineTo(0, -1.9);
     stabShape.closePath();
 
-    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06, bevelEnabled: false });
     stabGeo.translate(0, 0, -0.03);
     stabGeo.rotateX(Math.PI / 2);
 

@@ -34,10 +34,34 @@ class FlightControls {
 
     this.cameraMode = 'chase'; // 'chase' or 'cockpit'
 
+    // Free-Look & 360-degree Camera Orbit
+    this.freeLookYaw = 0;
+    this.freeLookPitch = 0;
+    this.cameraZoom = 1.0;
+    this.isFreeLook = false;
+    this.isFreeLookDragging = false;
+    this.isFreeLookLocked = false;
+    this.freeLookActiveTimer = 0;
+    this.lastMouseClientX = 0;
+    this.lastMouseClientY = 0;
+
     this.initListeners();
   }
 
+  resetCameraView() {
+    this.freeLookYaw = 0;
+    this.freeLookPitch = 0;
+    this.cameraZoom = 1.0;
+    this.isFreeLook = false;
+    this.isFreeLookDragging = false;
+    this.isFreeLookLocked = false;
+  }
+
   initListeners() {
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
 
@@ -47,6 +71,15 @@ class FlightControls {
         const overlay = document.getElementById('cockpit-overlay');
         if (overlay) {
           overlay.classList.toggle('active', this.cameraMode === 'cockpit');
+        }
+      }
+
+      // Reset or toggle camera view with 'V'
+      if (e.code === 'KeyV') {
+        if (Math.abs(this.freeLookYaw) > 0.05 || Math.abs(this.freeLookPitch) > 0.05 || Math.abs(this.cameraZoom - 1.0) > 0.05) {
+          this.resetCameraView();
+        } else {
+          this.isFreeLookLocked = !this.isFreeLookLocked;
         }
       }
 
@@ -64,6 +97,21 @@ class FlightControls {
     });
 
     window.addEventListener('mousemove', (e) => {
+      const movementX = e.movementX !== undefined ? e.movementX : (e.clientX - (this.lastMouseClientX || e.clientX));
+      const movementY = e.movementY !== undefined ? e.movementY : (e.clientY - (this.lastMouseClientY || e.clientY));
+      this.lastMouseClientX = e.clientX;
+      this.lastMouseClientY = e.clientY;
+
+      if (this.isFreeLookDragging) {
+        const sensitivity = 0.0035;
+        this.freeLookYaw -= movementX * sensitivity;
+        this.freeLookPitch -= movementY * sensitivity;
+        const maxPitch = Math.PI * 0.46;
+        this.freeLookPitch = THREE.MathUtils.clamp(this.freeLookPitch, -maxPitch, maxPitch);
+        this.updateMouseReticleUI();
+        return; // Do not steer plane with mouse while rotating camera!
+      }
+
       if (!this.isMouseAimActive) return;
 
       const halfW = window.innerWidth / 2;
@@ -89,14 +137,32 @@ class FlightControls {
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
         this.mouse.down = true;
+      } else if (e.button === 2) {
+        // Right click: start free look orbit
+        this.isFreeLook = true;
+        this.isFreeLookDragging = true;
+        this.lastMouseClientX = e.clientX;
+        this.lastMouseClientY = e.clientY;
+      } else if (e.button === 1) {
+        // Middle click: reset camera view
+        this.resetCameraView();
       }
     });
 
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) {
         this.mouse.down = false;
+      } else if (e.button === 2) {
+        this.isFreeLookDragging = false;
+        if (!this.isFreeLookLocked) {
+          this.isFreeLook = false;
+        }
       }
     });
+
+    window.addEventListener('wheel', (e) => {
+      this.cameraZoom = THREE.MathUtils.clamp(this.cameraZoom + e.deltaY * 0.001, 0.55, 2.4);
+    }, { passive: true });
   }
 
   updateMouseReticleUI() {
@@ -223,10 +289,41 @@ class FlightControls {
     // Store world velocity vector for lead calculations
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
     this.player.mesh.userData.velocity = forward.multiplyScalar(this.currentSpeed);
+
+    // --- 5. KEYBOARD CAMERA ROTATION (I/K/J/L) & SMOOTH RESET ---
+    let kbCamYaw = 0;
+    let kbCamPitch = 0;
+    if (this.keys['KeyJ']) kbCamYaw += 1.0;
+    if (this.keys['KeyL']) kbCamYaw -= 1.0;
+    if (this.keys['KeyI']) kbCamPitch -= 1.0;
+    if (this.keys['KeyK']) kbCamPitch += 1.0;
+
+    if (kbCamYaw !== 0 || kbCamPitch !== 0) {
+      const rotSpeed = 2.4 * dt;
+      this.freeLookYaw -= kbCamYaw * rotSpeed;
+      this.freeLookPitch -= kbCamPitch * rotSpeed;
+      const maxPitch = Math.PI * 0.46;
+      this.freeLookPitch = THREE.MathUtils.clamp(this.freeLookPitch, -maxPitch, maxPitch);
+      this.isFreeLook = true;
+      this.freeLookActiveTimer = 0.5;
+    } else if (this.freeLookActiveTimer > 0) {
+      this.freeLookActiveTimer -= dt;
+      if (this.freeLookActiveTimer <= 0 && !this.isFreeLookLocked && !this.isFreeLookDragging) {
+        this.isFreeLook = false;
+      }
+    }
+
+    // Smooth camera return when free look is released
+    if (!this.isFreeLook && !this.isFreeLookDragging && !this.isFreeLookLocked) {
+      this.freeLookYaw = THREE.MathUtils.lerp(this.freeLookYaw, 0, 10.0 * dt);
+      this.freeLookPitch = THREE.MathUtils.lerp(this.freeLookPitch, 0, 10.0 * dt);
+      if (Math.abs(this.freeLookYaw) < 0.001) this.freeLookYaw = 0;
+      if (Math.abs(this.freeLookPitch) < 0.001) this.freeLookPitch = 0;
+    }
   }
 
   isFiring() {
-    return this.mouse.down || this.keys['Space'];
+    return (this.mouse.down && !this.isFreeLookDragging) || this.keys['Space'];
   }
 }
 

@@ -620,6 +620,7 @@ class AirCombatGame {
 
     this.ui.showKillAnnouncement(announceText);
     window.soundSystem.playRadioChatter();
+    if (this.controls) this.controls.resetCameraView();
     this.updateCamera(1.0);
   }
 
@@ -1322,18 +1323,27 @@ class AirCombatGame {
     if (!this.player || !this.player.mesh) return;
 
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
+    const freeYaw = this.controls ? this.controls.freeLookYaw : 0;
+    const freePitch = this.controls ? this.controls.freeLookPitch : 0;
+    const zoom = this.controls ? this.controls.cameraZoom : 1.0;
 
     if (this.controls.cameraMode === 'cockpit') {
-      // First person cockpit view looking forward (+Z)
+      // First person cockpit view with 360-degree free head look
       const localEye = this.player.mesh.userData.cockpitPos || new THREE.Vector3(0, 0.65, 0.25);
       const eyePos = localEye.clone().applyMatrix4(this.player.mesh.matrixWorld);
-      const upVec = new THREE.Vector3(0, 1, 0).applyQuaternion(this.player.mesh.quaternion);
+
+      const headEuler = new THREE.Euler(freePitch, freeYaw, 0, 'YXZ');
+      const headQuat = new THREE.Quaternion().setFromEuler(headEuler);
+      const totalHeadQuat = this.player.mesh.quaternion.clone().multiply(headQuat);
+
+      const lookDir = new THREE.Vector3(0, 0, 1).applyQuaternion(totalHeadQuat);
+      const headUp = new THREE.Vector3(0, 1, 0).applyQuaternion(totalHeadQuat);
 
       this.camera.position.copy(eyePos);
-      this.camera.up.copy(upVec);
-      this.camera.lookAt(eyePos.clone().addScaledVector(forward, 200));
+      this.camera.up.copy(headUp);
+      this.camera.lookAt(eyePos.clone().addScaledVector(lookDir, 200));
     } else {
-      // Stabilized third-person chase camera (follows yaw & pitch, with gentle 25% roll bank)
+      // Stabilized third-person chase camera with 360-degree free orbit
       const camEuler = new THREE.Euler(
         this.controls.pitch,
         this.controls.yaw,
@@ -1342,19 +1352,32 @@ class AirCombatGame {
       );
       const camQuat = new THREE.Quaternion().setFromEuler(camEuler);
 
+      const orbitEuler = new THREE.Euler(freePitch, freeYaw, 0, 'YXZ');
+      const orbitQuat = new THREE.Quaternion().setFromEuler(orbitEuler);
+      const totalQuat = camQuat.clone().multiply(orbitQuat);
+
       const baseOffset = this.player.mesh.userData.chaseOffset || new THREE.Vector3(0, 2.8, -10.5);
-      const offset = baseOffset.clone().applyQuaternion(camQuat);
+      const offset = baseOffset.clone().multiplyScalar(zoom).applyQuaternion(totalQuat);
       const targetCamPos = this.player.mesh.position.clone().add(offset);
 
       const lerpSpeed = dt >= 1.0 ? 1.0 : Math.min(1.0, 18.0 * dt);
       this.camera.position.lerp(targetCamPos, lerpSpeed);
-      this.camera.up.set(0, 1, 0).applyQuaternion(camQuat);
+      this.camera.up.set(0, 1, 0).applyQuaternion(totalQuat);
 
       // Elevate targetLook slightly above the nose line proportionally to camera height
-      // so the aircraft's tail / canopy doesn't occlude the HUD crosshair or targets ahead
       const upOffset = new THREE.Vector3(0, baseOffset.y * 0.35, 0).applyQuaternion(camQuat);
-      const targetLook = this.player.mesh.position.clone().add(upOffset).addScaledVector(forward, 260);
-      this.camera.lookAt(targetLook);
+      const planeCenter = this.player.mesh.position.clone().add(upOffset);
+      const defaultLook = planeCenter.clone().addScaledVector(forward, 260);
+
+      const freeLookMag = Math.min(1.0, Math.hypot(freeYaw, freePitch) * 2.5);
+      if (freeLookMag < 0.001) {
+        this.camera.lookAt(defaultLook);
+      } else {
+        const lookDir = planeCenter.clone().sub(this.camera.position).normalize();
+        const orbitLook = this.camera.position.clone().addScaledVector(lookDir, 260);
+        const blendedLook = defaultLook.clone().lerp(orbitLook, freeLookMag);
+        this.camera.lookAt(blendedLook);
+      }
     }
   }
 
