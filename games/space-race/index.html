@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPACE RACE: Orbital Defense | Sega 1981 Arcade</title>
+    <link rel="stylesheet" href="css/arcade.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+</head>
+<body>
+
+    <div class="arcade-wrapper">
+        <!-- Arcade Marquee Header -->
+        <header class="arcade-marquee">
+            <div class="marquee-left">
+                <span class="sega-badge">SEGA</span>
+                <span class="marquee-title">SPACE RACE</span>
+            </div>
+            <div class="marquee-right">
+                <button id="toggleCrt" class="btn-arcade-action" title="Toggle CRT Scanline Effect">
+                    <span id="crtIcon">📺</span> CRT ON
+                </button>
+                <button id="toggleAudio" class="btn-arcade-action" title="Toggle FM Synth Audio & SFX (M)">
+                    <span id="audioIcon">🔊</span> SOUND
+                </button>
+            </div>
+        </header>
+
+        <!-- Arcade Cabinet Bezel & CRT Display -->
+        <div class="cabinet-bezel">
+            <div class="screen-container">
+                <canvas id="gameCanvas" width="680" height="640"></canvas>
+                <div id="crtOverlay" class="crt-overlay"></div>
+                <div class="screen-curvature"></div>
+            </div>
+        </div>
+
+        <!-- Lower Control Panel & Virtual Arcade Buttons -->
+        <footer class="control-panel">
+            <div class="instructions-guide">
+                <div><span>MOVE:</span> [← / →] or [A / D] &nbsp;|&nbsp; <span>FIRE:</span> [SPACEBAR] or [W / ↑]</div>
+                <div><span>REPAIR:</span> Fly under Orbital Service Station when beacon is green</div>
+                <div><span>DAMAGE:</span> Starlink collisions take 1/3 Hull Life &nbsp;|&nbsp; <span>UPGRADES:</span> Collect P-Capsules</div>
+            </div>
+
+            <!-- Virtual On-Screen Controls for Touch / Tablet -->
+            <div class="mobile-controls">
+                <button id="btnLeft" class="touch-btn" aria-label="Move Left">◀</button>
+                <button id="btnRight" class="touch-btn" aria-label="Move Right">▶</button>
+                <button id="btnFire" class="touch-btn fire-btn" aria-label="Fire Plasma">FIRE</button>
+                <button id="btnStart" class="touch-btn" aria-label="Start / Insert Coin" style="font-size:12px;">1UP</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/earth.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/game.js"></script>
+
+    <!-- UI Helpers -->
+    <script>
+        // CRT Toggle
+        const toggleCrtBtn = document.getElementById('toggleCrt');
+        const crtOverlay = document.getElementById('crtOverlay');
+        let crtEnabled = true;
+
+        toggleCrtBtn.addEventListener('click', () => {
+            crtEnabled = !crtEnabled;
+            if (crtEnabled) {
+                crtOverlay.classList.remove('disabled');
+                toggleCrtBtn.innerHTML = '<span>📺</span> CRT ON';
+                toggleCrtBtn.classList.remove('active');
+            } else {
+                crtOverlay.classList.add('disabled');
+                toggleCrtBtn.innerHTML = '<span>📺</span> CRT OFF';
+                toggleCrtBtn.classList.add('active');
+            }
+        });
+
+        // Audio Toggle
+        const toggleAudioBtn = document.getElementById('toggleAudio');
+        toggleAudioBtn.addEventListener('click', () => {
+            if (window.game && window.game.audio) {
+                window.game.audio.init();
+                const muted = window.game.audio.toggleMute();
+                toggleAudioBtn.innerHTML = muted ? '<span>🔇</span> MUTED' : '<span>🔊</span> SOUND';
+                if (muted) {
+                    toggleAudioBtn.classList.add('active');
+                } else {
+                    toggleAudioBtn.classList.remove('active');
+                }
+            }
+        });
+    </script>
+<!-- Floating Hub Button -->
+<a href="../../index.html" id="hub-back-btn" style="position:fixed;bottom:16px;left:16px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:#38bdf8;padding:8px 14px;border-radius:20px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;text-decoration:none;border:1px solid rgba(56,189,248,0.3);box-shadow:0 4px 15px rgba(0,0,0,0.4);display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.05)';this.style.background='#38bdf8';this.style.color='#0f172a'" onmouseout="this.style.transform='none';this.style.background='rgba(15,23,42,0.85)';this.style.color='#38bdf8'">
+  <span>🏠</span> Strona Główna
+</a>
+
+</body>
+</html>

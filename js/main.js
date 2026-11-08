@@ -54,6 +54,18 @@ const gamesData = {
       { action: "Nowa gra", key: "Spacja / Przycisk na ekranie" }
     ],
     features: "Płynna animacja Canvas 2D, rosnący poziom trudności, system najlepszych wyników."
+  },
+  "space-race": {
+    title: "SPACE RACE: Orbital Defense (Sega 1981)",
+    desc: "Autentyczny kosmiczny arcade shooter w stylu retro Sega! Pilotuj wahadłowiec NASA Space Shuttle Atlantis, niszcz satelity Starlink i rakiety Falcon, dokuj do stacji orbitalnej i chroń Ziemię.",
+    controls: [
+      { action: "Ruch Lewo / Prawo", key: "A / D lub Strzałki" },
+      { action: "Działo Plazmowe", key: "Spacja / W / Strzałka w górę" },
+      { action: "Start / 1UP", key: "Enter / Spacja" },
+      { action: "Efekt CRT Scanline", key: "Przycisk CRT w nagłówku" },
+      { action: "Dźwięk syntezatora FM", key: "M lub Ikona głośnika" }
+    ],
+    features: "Synteza dźwięku FM Web Audio, filtry CRT Scanlines, animowana Ziemia orbitalna 360°, ulepszenia uzbrojenia."
   }
 };
 

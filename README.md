@@ -28,6 +28,10 @@ Strona internetowa z kolekcją autorskich gier 3D WebGL i Canvas 2D, hostowana b
    - Zręcznościowa gra 2D w omijanie przeszkód i zbieranie rybek.
    - Ścieżka: `games/kotek/`
 
+6. **SPACE RACE: Orbital Defense (Sega 1981 Arcade)**
+   - Retro kosmiczny arcade shooter. Pilotuj wahadłowiec Atlantis i chroń orbitę Ziemi przed rojami satelitów.
+   - Ścieżka: `games/space-race/`
+
 ---
 
 ## 🚀 Uruchomienie lokalne

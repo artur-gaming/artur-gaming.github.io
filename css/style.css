@@ -340,6 +340,9 @@ body {
 .banner-kotek {
   background: linear-gradient(135deg, #d97706, #7c2d12);
 }
+.banner-spacerace {
+  background: linear-gradient(135deg, #4c1d95, #0f172a 60%, #0284c7);
+}
 
 .card-badge-engine {
   position: absolute;

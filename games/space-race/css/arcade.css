@@ -1,0 +1,280 @@
+/* css/arcade.css - Authentic Sega Arcade Cabinet Styling & CRT Effects */
+
+:root {
+    --cabinet-bg: #090d16;
+    --bezel-color: #1e293b;
+    --neon-blue: #00f0ff;
+    --neon-pink: #ff007f;
+    --neon-gold: #fbbf24;
+    --arcade-font: 'Courier New', monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body {
+    background-color: var(--cabinet-bg);
+    background-image: 
+        radial-gradient(circle at 50% 20%, rgba(30, 58, 138, 0.3) 0%, transparent 60%),
+        linear-gradient(to bottom, #050811, #0b1120);
+    color: #e2e8f0;
+    font-family: var(--arcade-font);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding: 10px;
+}
+
+.arcade-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 900px;
+    width: 100%;
+    max-height: 98vh;
+}
+
+/* --- Marquee Header --- */
+.arcade-marquee {
+    width: 100%;
+    max-width: 720px;
+    background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+    border: 3px solid #38bdf8;
+    border-radius: 12px 12px 0 0;
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 
+        0 0 25px rgba(56, 189, 248, 0.4),
+        inset 0 0 15px rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.marquee-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sega-badge {
+    background: #0284c7;
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    box-shadow: 0 0 10px rgba(2, 132, 199, 0.8);
+    border: 1px solid #7dd3fc;
+}
+
+.marquee-title {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #ffffff;
+    text-shadow: 
+        0 0 8px var(--neon-blue),
+        0 0 16px var(--neon-blue);
+}
+
+.marquee-right {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+
+.btn-arcade-action {
+    background: #1e293b;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.btn-arcade-action:hover {
+    background: #334155;
+    color: #ffffff;
+    border-color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.btn-arcade-action.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #38bdf8;
+}
+
+/* --- Arcade Cabinet Bezel & CRT Screen --- */
+.cabinet-bezel {
+    position: relative;
+    background: #0f172a;
+    border: 8px solid #1e293b;
+    border-left-width: 14px;
+    border-right-width: 14px;
+    box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.8),
+        inset 0 0 40px rgba(0, 0, 0, 0.95);
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    max-height: calc(100vh - 160px);
+    display: flex;
+    justify-content: center;
+}
+
+.screen-container {
+    position: relative;
+    width: 680px;
+    height: 640px;
+    max-height: calc(100vh - 176px);
+    aspect-ratio: 680 / 640;
+    background: #02040a;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #02040a;
+}
+
+/* Scanlines and CRT Curvature */
+.crt-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.35) 50%
+    );
+    background-size: 100% 4px;
+    z-index: 20;
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.65);
+    transition: opacity 0.2s ease;
+}
+
+.crt-overlay.disabled {
+    opacity: 0;
+}
+
+.screen-curvature {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle at center, transparent 65%, rgba(0, 0, 0, 0.6) 100%);
+    z-index: 25;
+}
+
+/* --- Control Panel & Mobile Controls --- */
+.control-panel {
+    width: 100%;
+    max-width: 720px;
+    background: #111827;
+    border: 3px solid #334155;
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+}
+
+.instructions-guide {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+
+.instructions-guide span {
+    color: #f8fafc;
+    font-weight: bold;
+}
+
+.mobile-controls {
+    display: none; /* Shown on small screens */
+    gap: 16px;
+}
+
+.touch-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1e293b;
+    border: 2px solid #475569;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    touch-action: manipulation;
+    font-family: inherit;
+}
+
+.touch-btn:active {
+    background: #0284c7;
+    border-color: #38bdf8;
+    transform: scale(0.94);
+}
+
+.touch-btn.fire-btn {
+    background: #dc2626;
+    border-color: #f87171;
+    width: 64px;
+    height: 64px;
+}
+
+.touch-btn.fire-btn:active {
+    background: #ef4444;
+}
+
+/* Responsive Scaling for smaller screens & laptops */
+@media (max-width: 740px) {
+    body {
+        padding: 4px;
+    }
+    .cabinet-bezel {
+        border-width: 4px;
+        max-height: none;
+    }
+    .screen-container {
+        width: 100vw;
+        max-width: 100%;
+        height: auto;
+        max-height: none;
+        aspect-ratio: 680 / 640;
+    }
+    .marquee-title {
+        font-size: 15px;
+    }
+    .mobile-controls {
+        display: flex;
+    }
+    .instructions-guide {
+        display: none;
+    }
+}
