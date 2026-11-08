@@ -6,7 +6,6 @@ class World {
     this.clouds = [];
     this.cloudBoxes = [];
     this.balloons = [];
-    this.rotatingRadars = [];
     this.mapEntities = new THREE.Group();
     this.scene.add(this.mapEntities);
     this.currentMap = 'britain';
@@ -65,7 +64,9 @@ class World {
     }
     this.balloons = [];
 
-    if (mapType === 'japan') {
+    if (mapType === 'poland') {
+      this.buildPolandMap();
+    } else if (mapType === 'japan') {
       this.buildJapanMap();
     } else {
       this.buildBritainMap();
@@ -238,6 +239,185 @@ class World {
       pagodaGroup.add(roof);
     }
     this.mapEntities.add(pagodaGroup);
+  }
+
+  buildPolandMap() {
+    // Baltic Sea palette
+    this.oceanMat.color.setHex(0x16344d);
+    this.scene.background.setHex(0x7dd3fc);
+    this.scene.fog.color.setHex(0x93c5fd);
+
+    // 1. POLISH COAST & MAINLAND (Nizina Polska & Wybrzeże Bałtyku)
+    const mainlandGeo = new THREE.PlaneGeometry(8000, 5000, 28, 20);
+    mainlandGeo.rotateX(-Math.PI / 2);
+
+    const pos = mainlandGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      // Gentle rolling moraine hills & coastal dunes
+      let y = Math.sin(x * 0.0012) * Math.cos(z * 0.0012) * 55;
+      y += Math.sin(x * 0.003) * 25;
+      if (y < 8) y = 4;
+      pos.setY(i, y);
+    }
+    mainlandGeo.computeVertexNormals();
+
+    const terrainTexture = PlaneModels.createCamoTexture('#2e6b27', '#ca8a04', 'splinter');
+    terrainTexture.wrapS = THREE.RepeatWrapping;
+    terrainTexture.wrapT = THREE.RepeatWrapping;
+    terrainTexture.repeat.set(16, 12);
+
+    const mainlandMat = new THREE.MeshLambertMaterial({ map: terrainTexture });
+    const mainland = new THREE.Mesh(mainlandGeo, mainlandMat);
+    mainland.position.set(0, 0, -1800);
+    this.mapEntities.add(mainland);
+
+    // 2. HEL PENINSULA / PÓŁWYSEP HELSKI (Sandy spit jutting into the Baltic)
+    const helSpitGroup = new THREE.Group();
+    helSpitGroup.position.set(1200, 0, 400);
+
+    const sandMat = new THREE.MeshLambertMaterial({ color: 0xe2b170 });
+    const pineMat = new THREE.MeshLambertMaterial({ color: 0x14532d });
+
+    // Long curved sand spit
+    const spitGeo = new THREE.BoxGeometry(220, 8, 2400);
+    spitGeo.rotateY(0.35); // Curved angle of Hel
+    const spit = new THREE.Mesh(spitGeo, sandMat);
+    spit.position.set(0, 4, 0);
+    helSpitGroup.add(spit);
+
+    // Pine forest ridge along Hel spit
+    const pineRidgeGeo = new THREE.ConeGeometry(40, 18, 5);
+    for (let p = -1000; p < 1000; p += 160) {
+      const pine = new THREE.Mesh(pineRidgeGeo, pineMat);
+      const px = Math.sin(p * 0.002) * 30;
+      pine.position.set(px, 12, p);
+      helSpitGroup.add(pine);
+    }
+    this.mapEntities.add(helSpitGroup);
+
+    // 3. TATRA MOUNTAINS (TATRY / RYSY - Ośnieżone granie na południowym horyzoncie)
+    const tatraGroup = new THREE.Group();
+    tatraGroup.position.set(0, 0, -4200);
+
+    const graniteMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+    const snowMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+
+    const peaks = [
+      { x: -1600, h: 540, r: 420 },
+      { x: -800,  h: 680, r: 480 },
+      { x: 0,     h: 780, r: 520 }, // Rysy peak
+      { x: 850,   h: 640, r: 460 },
+      { x: 1700,  h: 520, r: 400 },
+      { x: 2500,  h: 460, r: 380 }
+    ];
+
+    peaks.forEach(p => {
+      // Granite base
+      const peakGeo = new THREE.ConeGeometry(p.r, p.h, 7);
+      const peak = new THREE.Mesh(peakGeo, graniteMat);
+      peak.position.set(p.x, p.h * 0.5, 0);
+      tatraGroup.add(peak);
+
+      // Bright white snow cap
+      const snowGeo = new THREE.ConeGeometry(p.r * 0.38, p.h * 0.38, 7);
+      const snow = new THREE.Mesh(snowGeo, snowMat);
+      snow.position.set(p.x, p.h * 0.81, 0);
+      tatraGroup.add(snow);
+    });
+    this.mapEntities.add(tatraGroup);
+
+    // 4. POLISH TACTICAL AIR BASE (Baza Lotnictwa Taktycznego RP)
+    const baseGroup = new THREE.Group();
+    baseGroup.position.set(-800, 16, -1100);
+
+    // Asphalt concrete runway (Pas startowy 3200m)
+    const tarmacMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+    const runwayGeo = new THREE.BoxGeometry(140, 2, 2800);
+    const runway = new THREE.Mesh(runwayGeo, tarmacMat);
+    baseGroup.add(runway);
+
+    // Runway white centerlines
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    for (let z = -1200; z <= 1200; z += 120) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(4, 2.2, 50), lineMat);
+      stripe.position.set(0, 1.2, z);
+      baseGroup.add(stripe);
+    }
+
+    // NATO Hardened Aircraft Shelters (HAS / Schronohangary)
+    const hangarMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
+    for (let h = -2; h <= 2; h++) {
+      const hasGeo = new THREE.CylinderGeometry(30, 30, 70, 12, 1, false, 0, Math.PI);
+      hasGeo.rotateZ(Math.PI / 2);
+      const hangar = new THREE.Mesh(hasGeo, hangarMat);
+      hangar.position.set(140, 0, h * 160);
+      baseGroup.add(hangar);
+    }
+
+    // Polish Air Base Control Tower with radome
+    const towerMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(24, 60, 24), towerMat);
+    tower.position.set(-140, 30, 0);
+    baseGroup.add(tower);
+
+    const radomeGeo = new THREE.SphereGeometry(14, 12, 10);
+    const radome = new THREE.Mesh(radomeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    radome.position.set(-140, 68, 0);
+    baseGroup.add(radome);
+
+    this.mapEntities.add(baseGroup);
+
+    // 5. BALTIC LIGHTHOUSE (Latarnia morska na przylądku Rozewie / Hel)
+    const lightGroup = new THREE.Group();
+    lightGroup.position.set(1600, 10, 800);
+
+    const redMat = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
+    const whiteMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+
+    for (let s = 0; s < 5; s++) {
+      const segGeo = new THREE.CylinderGeometry(9 - s * 0.7, 10 - s * 0.7, 12, 12);
+      const seg = new THREE.Mesh(segGeo, s % 2 === 0 ? redMat : whiteMat);
+      seg.position.y = s * 12 + 6;
+      lightGroup.add(seg);
+    }
+
+    const lanternRoom = new THREE.Mesh(
+      new THREE.CylinderGeometry(6, 6, 8, 10),
+      new THREE.MeshBasicMaterial({ color: 0xfef08a })
+    );
+    lanternRoom.position.y = 64;
+    lightGroup.add(lanternRoom);
+
+    const dome = new THREE.Mesh(
+      new THREE.ConeGeometry(7, 6, 12),
+      redMat
+    );
+    dome.position.y = 71;
+    lightGroup.add(dome);
+
+    this.mapEntities.add(lightGroup);
+
+    // 6. COASTAL MILITARY RADAR STATION (Ośrodek Radiolokacyjny z radarem dalekiego zasięgu)
+    const radarGroup = new THREE.Group();
+    radarGroup.position.set(450, 12, -450);
+
+    const bunker = new THREE.Mesh(
+      new THREE.BoxGeometry(44, 16, 44),
+      new THREE.MeshLambertMaterial({ color: 0x334155 })
+    );
+    bunker.position.y = 8;
+    radarGroup.add(bunker);
+
+    const bigDome = new THREE.Mesh(
+      new THREE.SphereGeometry(22, 16, 12),
+      new THREE.MeshLambertMaterial({ color: 0xf8fafc })
+    );
+    bigDome.position.y = 30;
+    radarGroup.add(bigDome);
+
+    this.mapEntities.add(radarGroup);
   }
 
   initClouds() {

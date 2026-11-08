@@ -58,8 +58,128 @@ class ParticleSystem {
     this.nukeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     this.nukeFireMat = new THREE.MeshBasicMaterial({ color: 0xff3b00 });
 
+    // Guided Homing Missiles (AIM-9 Sidewinder / AIM-120 AMRAAM)
+    this.missiles = [];
+    this.missileGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.6, 8);
+    this.missileGeo.rotateX(Math.PI / 2);
+    this.missileNoseGeo = new THREE.ConeGeometry(0.12, 0.45, 8);
+    this.missileNoseGeo.rotateX(-Math.PI / 2);
+    this.missileFinGeo = new THREE.BoxGeometry(0.65, 0.02, 0.35);
+    this.missileCanardGeo = new THREE.BoxGeometry(0.42, 0.02, 0.22);
+    this.missileFlameGeo = new THREE.ConeGeometry(0.16, 0.9, 8);
+    this.missileFlameGeo.rotateX(-Math.PI / 2);
+
+    this.missileMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.35,
+      metalness: 0.25
+    });
+    this.missileNoseMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.3
+    });
+    this.missileFinMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4
+    });
+    this.missileFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xff7700,
+      transparent: true,
+      opacity: 0.95
+    });
+
     // Reusable temp vector
     this._tempVec = new THREE.Vector3();
+  }
+
+  createMissileMesh() {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(this.missileGeo, this.missileMat);
+    group.add(body);
+
+    const nose = new THREE.Mesh(this.missileNoseGeo, this.missileNoseMat);
+    nose.position.z = 1.5;
+    group.add(nose);
+
+    const fin1 = new THREE.Mesh(this.missileFinGeo, this.missileFinMat);
+    fin1.position.z = -1.05;
+    group.add(fin1);
+    const fin2 = fin1.clone();
+    fin2.rotation.z = Math.PI / 2;
+    group.add(fin2);
+
+    const canard1 = new THREE.Mesh(this.missileCanardGeo, this.missileFinMat);
+    canard1.position.z = 0.8;
+    group.add(canard1);
+    const canard2 = canard1.clone();
+    canard2.rotation.z = Math.PI / 2;
+    group.add(canard2);
+
+    const flame = new THREE.Mesh(this.missileFlameGeo, this.missileFlameMat);
+    flame.position.z = -1.6;
+    group.add(flame);
+
+    return group;
+  }
+
+  // Spawn guided homing missile (AIM-9 / AIM-120)
+  spawnMissile(position, direction, target, isPlayer = true, initialSpeed = 120) {
+    if (this.missiles.length > 20) {
+      const oldest = this.missiles.shift();
+      this.scene.remove(oldest.mesh);
+    }
+
+    const mesh = this.createMissileMesh();
+    mesh.position.copy(position);
+
+    const dir = direction.clone().normalize();
+    this._tempVec.copy(position).add(dir);
+    mesh.lookAt(this._tempVec);
+
+    const velocity = dir.clone().multiplyScalar(initialSpeed);
+
+    const missile = {
+      mesh: mesh,
+      velocity: velocity,
+      speed: initialSpeed,
+      target: target,
+      isPlayer: isPlayer,
+      life: 0,
+      maxLife: 6.5,
+      radius: 2.5,
+      damage: 340,
+      smokeTimer: 0
+    };
+
+    this.scene.add(mesh);
+    this.missiles.push(missile);
+    return missile;
+  }
+
+  // Rocket exhaust smoke puffs
+  spawnRocketSmoke(position) {
+    if (this.particles.length > 150) {
+      const old = this.particles.shift();
+      this.scene.remove(old.mesh);
+    }
+    const pMesh = new THREE.Mesh(this.particleGeo, Math.random() > 0.4 ? this.nukeWhiteMat : this.smokeMat2);
+    pMesh.position.copy(position);
+    const s = 0.45 + Math.random() * 0.35;
+    pMesh.scale.set(s, s, s);
+
+    this.scene.add(pMesh);
+    this.particles.push({
+      mesh: pMesh,
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 1.5
+      ),
+      drag: 0.94,
+      shrinkAfter: 0.15,
+      life: 0,
+      maxLife: 0.55
+    });
   }
 
   // Spawn machine gun bullet
@@ -386,6 +506,61 @@ class ParticleSystem {
       bomb.mesh.lookAt(this._tempVec);
     }
 
+    // 1c. Update Guided Homing Missiles (AIM-9 / AIM-120)
+    for (let i = this.missiles.length - 1; i >= 0; i--) {
+      const m = this.missiles[i];
+      m.life += dt;
+
+      // Rocket acceleration
+      m.speed = Math.min(390, m.speed + 175 * dt);
+
+      // Proportional navigation homing steering toward target
+      if (m.target && !m.target.isDead && m.target.mesh) {
+        const targetPos = m.target.mesh.position;
+        const dist = m.mesh.position.distanceTo(targetPos);
+        const timeToHit = Math.max(0.04, dist / m.speed);
+
+        const targetVel = m.target.velocity || new THREE.Vector3(0, 0, m.target.speed || 80);
+        const predictedPos = targetPos.clone().addScaledVector(targetVel, timeToHit * 0.5);
+        const desiredDir = new THREE.Vector3().subVectors(predictedPos, m.mesh.position).normalize();
+
+        const currentDir = m.velocity.clone().normalize();
+        const maxSteer = 5.2 * dt;
+        currentDir.lerp(desiredDir, Math.min(1.0, maxSteer)).normalize();
+        m.velocity.copy(currentDir).multiplyScalar(m.speed);
+      }
+
+      // Move missile
+      m.mesh.position.addScaledVector(m.velocity, dt);
+
+      // Orient mesh along velocity
+      this._tempVec.copy(m.mesh.position).add(m.velocity);
+      m.mesh.lookAt(this._tempVec);
+
+      // Rocket exhaust trail
+      m.smokeTimer += dt;
+      if (m.smokeTimer >= 0.032) {
+        m.smokeTimer = 0;
+        this.spawnRocketSmoke(m.mesh.position);
+      }
+
+      // Detonate on ground or water surface
+      if (m.mesh.position.y <= 2.2) {
+        this.createExplosion(m.mesh.position, 1.8, true);
+        window.soundSystem.playExplosion(true);
+        this.scene.remove(m.mesh);
+        this.missiles.splice(i, 1);
+        continue;
+      }
+
+      // Fuel exhaustion
+      if (m.life >= m.maxLife) {
+        this.createExplosion(m.mesh.position, 1.2, false);
+        this.scene.remove(m.mesh);
+        this.missiles.splice(i, 1);
+      }
+    }
+
     // 2. Update particles (scale-based fade instead of cloning materials)
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -447,11 +622,13 @@ class ParticleSystem {
   cleanup() {
     this.bullets.forEach(b => this.scene.remove(b.mesh));
     this.bombs.forEach(b => this.scene.remove(b.mesh));
+    this.missiles.forEach(m => this.scene.remove(m.mesh));
     this.particles.forEach(p => this.scene.remove(p.mesh));
     this.debrisList.forEach(d => this.scene.remove(d.mesh));
     this.nukeShockwaves.forEach(s => this.scene.remove(s.mesh));
     this.bullets = [];
     this.bombs = [];
+    this.missiles = [];
     this.particles = [];
     this.debrisList = [];
     this.nukeShockwaves = [];

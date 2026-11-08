@@ -35,73 +35,6 @@ const PlaneModels = {
     return this._cache.polish;
   },
 
-  createLowVisPolishChessboardTexture() {
-    if (this._cache.polishLowVis) return this._cache.polishLowVis;
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-
-    // Dual-tone low-observability tactical grey checkerboard (Polish F-35 Husarz / F-16 modern scheme)
-    ctx.fillStyle = '#475569'; // Slate 600
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.fillStyle = '#cbd5e1'; // Slate 300
-    ctx.fillRect(0, 0, 64, 64);
-    ctx.fillRect(64, 64, 64, 64);
-
-    ctx.fillStyle = '#475569';
-    ctx.fillRect(16, 16, 32, 32);
-    ctx.fillRect(80, 80, 32, 32);
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(80, 16, 32, 32);
-    ctx.fillRect(16, 80, 32, 32);
-
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.strokeRect(2, 2, 124, 124);
-
-    this._cache.polishLowVis = new THREE.CanvasTexture(canvas);
-    return this._cache.polishLowVis;
-  },
-
-  createRedStarTexture() {
-    if (this._cache.redStar) return this._cache.redStar;
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 128, 128);
-
-    function drawStar(cx, cy, spikes, outerR, innerR, fill) {
-      let rot = (Math.PI / 2) * 3;
-      let x = cx;
-      let y = cy;
-      const step = Math.PI / spikes;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - outerR);
-      for (let i = 0; i < spikes; i++) {
-        x = cx + Math.cos(rot) * outerR;
-        y = cy + Math.sin(rot) * outerR;
-        ctx.lineTo(x, y);
-        rot += step;
-        x = cx + Math.cos(rot) * innerR;
-        y = cy + Math.sin(rot) * innerR;
-        ctx.lineTo(x, y);
-        rot += step;
-      }
-      ctx.lineTo(cx, cy - outerR);
-      ctx.closePath();
-      ctx.fillStyle = fill;
-      ctx.fill();
-    }
-
-    drawStar(64, 64, 5, 56, 24, '#ffffff');
-    drawStar(64, 64, 5, 48, 20, '#dc2626');
-
-    this._cache.redStar = new THREE.CanvasTexture(canvas);
-    return this._cache.redStar;
-  },
-
   createRAFRoundelTexture() {
     if (this._cache.raf) return this._cache.raf;
     const canvas = document.createElement('canvas');
@@ -1741,558 +1674,639 @@ const PlaneModels = {
     return group;
   },
 
-  // --- MODERN AFTERBURNER PLUME (GLOWING DYNAMIC CONE) ---
-  createAfterburnerPlume(radius = 0.32, length = 2.4) {
-    const group = new THREE.Group();
+  createRedStarTexture() {
+    if (this._cache.redStar) return this._cache.redStar;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 128, 128);
 
-    // Inner high-temperature cyan core
-    const coreGeo = new THREE.ConeGeometry(radius * 0.45, length * 0.8, 10);
-    coreGeo.rotateX(Math.PI / 2);
-    coreGeo.translate(0, 0, -length * 0.4);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x67e8f9,
-      transparent: true,
-      opacity: 0.95
-    });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    group.add(core);
+    ctx.fillStyle = '#dc2626';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    const cx = 64, cy = 64, r = 52, ir = 22;
+    for (let i = 0; i < 5; i++) {
+      const a = (i * 72 - 90) * Math.PI / 180;
+      const ia = (i * 72 + 36 - 90) * Math.PI / 180;
+      if (i === 0) ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      else ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      ctx.lineTo(cx + Math.cos(ia) * ir, cy + Math.sin(ia) * ir);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-    // Outer supersonic thermal expansion cone (amber/orange)
-    const flameGeo = new THREE.ConeGeometry(radius, length, 10);
-    flameGeo.rotateX(Math.PI / 2);
-    flameGeo.translate(0, 0, -length * 0.5);
-    const flameMat = new THREE.MeshBasicMaterial({
-      color: 0xf97316,
-      transparent: true,
-      opacity: 0.7
-    });
-    const flame = new THREE.Mesh(flameGeo, flameMat);
-    group.add(flame);
-
-    group.userData.core = core;
-    group.userData.flame = flame;
-    return group;
+    this._cache.redStar = new THREE.CanvasTexture(canvas);
+    return this._cache.redStar;
   },
 
-  // --- MODERN JDAM / GBU PRECISION GUIDED BOMB ---
-  createJdamBomb() {
-    const group = new THREE.Group();
-    group.name = 'JDAM_Bomb';
-
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: '#475569', // Tactical grey-green body
-      metalness: 0.4,
-      roughness: 0.4
-    });
-    const kitMat = new THREE.MeshStandardMaterial({
-      color: '#334155', // Guidance kit dark tail
-      metalness: 0.6,
-      roughness: 0.3
-    });
-    const seekerMat = new THREE.MeshBasicMaterial({ color: '#facc15' });
-
-    // Main bomb body
-    const bodyGeo = new THREE.CylinderGeometry(0.24, 0.22, 2.2, 12);
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    group.add(body);
-
-    // Aerodynamic nose cone with optical seeker tip
-    const noseGeo = new THREE.ConeGeometry(0.24, 0.7, 12);
-    noseGeo.rotateX(-Math.PI / 2);
-    const nose = new THREE.Mesh(noseGeo, bodyMat);
-    nose.position.z = 1.45;
-    group.add(nose);
-
-    const seeker = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), seekerMat);
-    seeker.position.z = 1.8;
-    group.add(seeker);
-
-    // Tail guidance kit (KMU-556 / 572 tail section)
-    const tailSection = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.8, 10), kitMat);
-    tailSection.rotation.x = Math.PI / 2;
-    tailSection.position.z = -1.5;
-    group.add(tailSection);
-
-    // 4 Steerable cruciform tail fins
-    const finGeo = new THREE.BoxGeometry(0.04, 0.42, 0.55);
-    for (let i = 0; i < 4; i++) {
-      const fin = new THREE.Mesh(finGeo, kitMat);
-      fin.rotation.z = (i * Math.PI) / 2;
-      fin.position.z = -1.65;
-      group.add(fin);
-    }
-
-    // Mid-body strake strakes
-    const strakeGeo = new THREE.BoxGeometry(0.03, 0.16, 1.2);
-    for (let i = 0; i < 4; i++) {
-      const strake = new THREE.Mesh(strakeGeo, kitMat);
-      strake.rotation.z = (i * Math.PI) / 2 + Math.PI / 4;
-      strake.position.z = 0.1;
-      group.add(strake);
-    }
-
-    return group;
-  },
-
-  // --- 1. F-16C BLOCK 52+ FIGHTING FALCON ("JASTRZĄB" - SIŁY POWIETRZNE RP) ---
+  // =========================================================================
+  // 1. LOCKHEED MARTIN F-16C BLOCK 52+ "JASTRZĄB" (POLISH AIR FORCE)
+  // Single-engine, bubble canopy, ventral intake, blended wing body, wingtip AIM-9
+  // =========================================================================
   createF16() {
     const group = new THREE.Group();
-    group.name = 'F16_Jastrzab';
 
-    const camoTexture = this.createCamoTexture('#64748b', '#475569', 'splinter');
-    const airframeMat = new THREE.MeshStandardMaterial({
-      map: camoTexture,
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b, // Tactical grey
       roughness: 0.45,
-      metalness: 0.35
+      metalness: 0.25
+    });
+    const darkBodyMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // Dark grey spine & LERX
+      roughness: 0.5,
+      metalness: 0.3
     });
     const radomeMat = new THREE.MeshStandardMaterial({
-      color: '#334155', // Dark grey radome
-      roughness: 0.3,
-      metalness: 0.2
+      color: 0x1e293b,
+      roughness: 0.35
+    });
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.85
     });
     const canopyMat = new THREE.MeshStandardMaterial({
-      color: '#d97706', // Tinted golden indium tin oxide bubble
+      color: 0xca8a04, // Indium gold tint bubble canopy
       roughness: 0.1,
-      metalness: 0.85,
-      opacity: 0.75,
-      transparent: true
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.68
     });
-    const nozzleMat = new THREE.MeshStandardMaterial({
-      color: '#1e293b', // Titanium engine exhaust
-      metalness: 0.8,
-      roughness: 0.25
-    });
-    const missileMat = new THREE.MeshStandardMaterial({
-      color: '#f8fafc',
-      roughness: 0.3
+    const abFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.9
     });
 
-    // 1. Sleek chined fuselage
-    const bodyGeo = new THREE.CylinderGeometry(0.48, 0.38, 7.8, 14);
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, airframeMat);
-    body.scale.set(1.15, 0.75, 1.0);
-    group.add(body);
+    // 1. Fuselage main body (blended)
+    const fuseGeo = new THREE.CylinderGeometry(0.55, 0.65, 8.5, 14);
+    fuseGeo.rotateX(Math.PI / 2);
+    fuseGeo.scale(1.2, 0.8, 1.0);
+    const fuselage = new THREE.Mesh(fuseGeo, bodyMat);
+    fuselage.position.set(0, 0, 0);
+    group.add(fuselage);
 
-    // Forward radar nose cone (Radome)
-    const noseGeo = new THREE.ConeGeometry(0.46, 2.4, 14);
+    // Conformal spine / dorsal spine fairing
+    const spineGeo = new THREE.BoxGeometry(0.5, 0.32, 5.5);
+    const spine = new THREE.Mesh(spineGeo, darkBodyMat);
+    spine.position.set(0, 0.42, -0.6);
+    group.add(spine);
+
+    // Radome pointed nose
+    const noseGeo = new THREE.ConeGeometry(0.48, 2.8, 14);
     noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.scale(1.1, 0.8, 1.0);
     const nose = new THREE.Mesh(noseGeo, radomeMat);
-    nose.position.z = 4.8;
-    nose.scale.set(1.1, 0.7, 1.0);
+    nose.position.set(0, -0.02, 5.4);
     group.add(nose);
 
-    // Pitot tube needle on nose
-    const pitotGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.7, 6);
-    pitotGeo.rotateX(Math.PI / 2);
-    const pitot = new THREE.Mesh(pitotGeo, radomeMat);
-    pitot.position.z = 6.35;
+    // Pitot tube at nose tip
+    const pitot = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6),
+      metalMat
+    );
+    pitot.rotation.x = Math.PI / 2;
+    pitot.position.set(0, -0.02, 7.1);
     group.add(pitot);
 
-    // 2. Distinctive F-16 Ventral Chin Scoop Intake (under cockpit)
-    const intakeLipGeo = new THREE.BoxGeometry(0.72, 0.35, 1.4);
-    const intake = new THREE.Mesh(intakeLipGeo, airframeMat);
-    intake.position.set(0, -0.42, 1.6);
-    group.add(intake);
+    // 2. Ventral Air Intake (chin scoop underneath)
+    const intakeLip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.55, 2.6),
+      darkBodyMat
+    );
+    intakeLip.position.set(0, -0.55, 1.3);
+    group.add(intakeLip);
 
     const intakeHole = new THREE.Mesh(
-      new THREE.BoxGeometry(0.62, 0.25, 0.2),
-      new THREE.MeshBasicMaterial({ color: '#090d16' })
+      new THREE.PlaneGeometry(0.7, 0.4),
+      new THREE.MeshBasicMaterial({ color: 0x050505 })
     );
-    intakeHole.position.set(0, -0.42, 2.3);
+    intakeHole.position.set(0, -0.55, 2.61);
     group.add(intakeHole);
 
-    // 3. Frameless 360-degree Bubble Canopy
-    const canopyGeo = new THREE.SphereGeometry(0.44, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    canopyGeo.scale(0.85, 0.95, 2.5);
+    // 3. Bubble Canopy & Pilot
+    const canopyGeo = new THREE.SphereGeometry(0.5, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    canopyGeo.scale(0.8, 0.85, 3.2);
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.36, 1.4);
+    canopy.position.set(0, 0.32, 2.0);
     group.add(canopy);
 
-    // Pilot with modern flight helmet
     const pilotHead = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 10, 8),
-      new THREE.MeshStandardMaterial({ color: '#15803d', roughness: 0.3 })
+      new THREE.SphereGeometry(0.2, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x14532d }) // Modern flight helmet
     );
-    pilotHead.position.set(0, 0.38, 1.3);
+    pilotHead.position.set(0, 0.38, 1.7);
     group.add(pilotHead);
 
-    // HUD Glass (Heads-Up Display)
-    const hudGlass = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.18, 0.02),
-      new THREE.MeshBasicMaterial({ color: '#4ade80', transparent: true, opacity: 0.8 })
-    );
-    hudGlass.position.set(0, 0.52, 2.35);
-    hudGlass.rotation.x = -0.3;
-    group.add(hudGlass);
-
-    // 4. Clipped Delta Wings & LERX (Leading Edge Root Extensions)
+    // 4. Cropped Delta Wings with leading edge strakes (LERX)
     const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 2.8); // LERX strake start near canopy
-    wingShape.quadraticCurveTo(0.65, 1.8, 1.25, 0.4); // Curved LERX
-    wingShape.lineTo(4.4, -0.6); // Wingtip leading edge
-    wingShape.lineTo(4.4, -1.8); // Wingtip rail
-    wingShape.lineTo(0.7, -1.8); // Trailing edge
-    wingShape.lineTo(0, -1.8); // Centerline
+    wingShape.moveTo(0, 3.5);
+    wingShape.lineTo(0.7, 1.5);
+    wingShape.lineTo(4.6, -1.8);
+    wingShape.lineTo(4.6, -2.5);
+    wingShape.lineTo(0.7, -2.5);
+    wingShape.lineTo(0, -2.5);
     wingShape.closePath();
 
-    const wingExtrude = { depth: 0.08, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
-    const rWingGeo = new THREE.ExtrudeGeometry(wingShape, wingExtrude);
-    rWingGeo.translate(0, 0, -0.04);
-    rWingGeo.rotateX(Math.PI / 2);
-
-    const rWing = new THREE.Mesh(rWingGeo, airframeMat);
-    rWing.position.set(0, 0.02, 0);
-    group.add(rWing);
-
-    const lWingGeo = rWingGeo.clone();
-    lWingGeo.scale(-1, 1, 1);
-    const lWing = new THREE.Mesh(lWingGeo, airframeMat);
-    lWing.position.set(0, 0.02, 0);
-    group.add(lWing);
-
-    // Wingtip Missile Launcher Rails with AIM-9 Sidewinder missiles
-    [-4.45, 4.45].forEach((wx, idx) => {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.2), airframeMat);
-      rail.position.set(wx, 0.02, -1.0);
-      group.add(rail);
-
-      const missile = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 8), missileMat);
-      missile.rotation.x = Math.PI / 2;
-      missile.position.set(wx, -0.06, -0.9);
-      group.add(missile);
-
-      const mNose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 8), new THREE.MeshBasicMaterial({ color: '#0f172a' }));
-      mNose.rotation.x = -Math.PI / 2;
-      mNose.position.set(wx, -0.06, 0.25);
-      group.add(mNose);
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+      depth: 0.12,
+      bevelEnabled: true,
+      bevelSize: 0.02,
+      bevelThickness: 0.02,
+      bevelSegments: 2
     });
+    wingGeo.translate(0, 0, -0.06);
+    wingGeo.rotateX(Math.PI / 2);
 
-    // 5. Tail Assembly: Tall swept vertical stabilizer + CFT dorsal spine (Block 52+)
-    const dorsalSpineGeo = new THREE.BoxGeometry(0.32, 0.28, 4.4);
-    const dorsalSpine = new THREE.Mesh(dorsalSpineGeo, airframeMat);
-    dorsalSpine.position.set(0, 0.38, -0.6);
-    group.add(dorsalSpine);
+    // Left wing
+    const leftWing = new THREE.Mesh(wingGeo, bodyMat);
+    leftWing.position.set(0.1, -0.02, 0);
+    group.add(leftWing);
 
+    // Right wing
+    const rWingGeo = wingGeo.clone();
+    rWingGeo.scale(-1, 1, 1);
+    const rightWing = new THREE.Mesh(rWingGeo, bodyMat);
+    rightWing.position.set(-0.1, -0.02, 0);
+    group.add(rightWing);
+
+    // 5. Wingtip Missile Launcher Rails & AIM-9X / AIM-120
+    const createWingtipMissile = (xSign) => {
+      const mGroup = new THREE.Group();
+      mGroup.position.set(xSign * 4.65, -0.02, -2.0);
+
+      // Launcher rail
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.2), darkBodyMat);
+      mGroup.add(rail);
+
+      // White missile body
+      const missBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 2.0, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 })
+      );
+      missBody.rotation.x = Math.PI / 2;
+      mGroup.add(missBody);
+
+      // Dark seeker nose
+      const seeker = new THREE.Mesh(
+        new THREE.ConeGeometry(0.06, 0.3, 8),
+        metalMat
+      );
+      seeker.rotation.x = -Math.PI / 2;
+      seeker.position.z = 1.15;
+      mGroup.add(seeker);
+
+      // Missile fins
+      const finGeo = new THREE.BoxGeometry(0.35, 0.02, 0.25);
+      const fin1 = new THREE.Mesh(finGeo, darkBodyMat);
+      fin1.position.z = -0.7;
+      mGroup.add(fin1);
+      const fin2 = fin1.clone();
+      fin2.rotation.z = Math.PI / 2;
+      mGroup.add(fin2);
+
+      return mGroup;
+    };
+    group.add(createWingtipMissile(1));
+    group.add(createWingtipMissile(-1));
+
+    // 6. Vertical Stabilizer (Fin) with Polish Air Force Szachownica!
     const finShape = new THREE.Shape();
     finShape.moveTo(0, 0);
-    finShape.lineTo(-1.6, 2.3);
-    finShape.lineTo(-2.2, 2.3);
+    finShape.lineTo(-1.6, 2.5);
+    finShape.lineTo(-2.2, 2.5);
     finShape.lineTo(-2.2, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 });
-    finGeo.translate(0, 0, -0.04);
+    const finGeo = new THREE.ExtrudeGeometry(finShape, {
+      depth: 0.1,
+      bevelEnabled: true,
+      bevelSize: 0.02,
+      bevelThickness: 0.02
+    });
+    finGeo.translate(0, 0, -0.05);
     finGeo.rotateY(-Math.PI / 2);
 
-    const vFin = new THREE.Mesh(finGeo, airframeMat);
-    vFin.position.set(0, 0.42, -1.6);
+    const vFin = new THREE.Mesh(finGeo, bodyMat);
+    vFin.position.set(0, 0.35, -2.0);
     group.add(vFin);
 
-    // Polish Air Force Chessboard (Biało-czerwona Szachownica) on both sides of tail fin
+    // Polish Chessboard on vertical fin sides
     const checkerMat = new THREE.MeshBasicMaterial({
       map: this.createPolishChessboardTexture(),
       transparent: true,
       polygonOffset: true,
       polygonOffsetFactor: -2
     });
-    const checkerPlane = new THREE.PlaneGeometry(0.55, 0.55);
+    const finDecalL = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), checkerMat);
+    finDecalL.position.set(0.06, 2.1, -3.7);
+    finDecalL.rotation.y = Math.PI / 2;
+    group.add(finDecalL);
 
-    const lChecker = new THREE.Mesh(checkerPlane, checkerMat);
-    lChecker.position.set(0.055, 2.1, -2.6);
-    lChecker.rotation.y = Math.PI / 2;
-    group.add(lChecker);
+    const finDecalR = finDecalL.clone();
+    finDecalR.position.x = -0.06;
+    finDecalR.rotation.y = -Math.PI / 2;
+    group.add(finDecalR);
 
-    const rChecker = new THREE.Mesh(checkerPlane, checkerMat);
-    rChecker.position.set(-0.055, 2.1, -2.6);
-    rChecker.rotation.y = -Math.PI / 2;
-    group.add(rChecker);
+    // Polish Chessboard on left upper wing
+    const wingDecal = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), checkerMat);
+    wingDecal.rotation.x = -Math.PI / 2;
+    wingDecal.position.set(2.4, 0.08, -1.2);
+    group.add(wingDecal);
 
-    // All-moving horizontal stabilators with slight anhedral (-5°)
-    const hTailShape = new THREE.Shape();
-    hTailShape.moveTo(0, 0);
-    hTailShape.lineTo(1.65, -0.85);
-    hTailShape.lineTo(1.45, -1.6);
-    hTailShape.lineTo(0, -1.4);
-    hTailShape.closePath();
+    // 7. Horizontal Tailerons (All-moving stabs)
+    const stabShape = new THREE.Shape();
+    stabShape.moveTo(0, 0);
+    stabShape.lineTo(1.8, -1.2);
+    stabShape.lineTo(1.6, -1.8);
+    stabShape.lineTo(0, -1.8);
+    stabShape.closePath();
 
-    const hTailGeo = new THREE.ExtrudeGeometry(hTailShape, { depth: 0.05, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 });
-    hTailGeo.translate(0, 0, -0.025);
-    hTailGeo.rotateX(Math.PI / 2);
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    stabGeo.translate(0, 0, -0.03);
+    stabGeo.rotateX(Math.PI / 2);
 
-    const rHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    rHTail.position.set(0.35, -0.05, -2.6);
-    rHTail.rotation.z = -0.08;
-    group.add(rHTail);
+    const lStab = new THREE.Mesh(stabGeo, darkBodyMat);
+    lStab.position.set(0.4, -0.05, -3.6);
+    lStab.rotation.z = -0.08;
+    group.add(lStab);
 
-    const lHTailGeo = hTailGeo.clone();
-    lHTailGeo.scale(-1, 1, 1);
-    const lHTail = new THREE.Mesh(lHTailGeo, airframeMat);
-    lHTail.position.set(-0.35, -0.05, -2.6);
-    lHTail.rotation.z = 0.08;
-    group.add(lHTail);
+    const rStabGeo = stabGeo.clone();
+    rStabGeo.scale(-1, 1, 1);
+    const rStab = new THREE.Mesh(rStabGeo, darkBodyMat);
+    rStab.position.set(-0.4, -0.05, -3.6);
+    rStab.rotation.z = 0.08;
+    group.add(rStab);
 
-    // Ventral strakes below tail
-    [-0.32, 0.32].forEach((sx, idx) => {
-      const vStrake = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 1.2), airframeMat);
-      vStrake.position.set(sx, -0.42, -2.5);
-      vStrake.rotation.z = idx === 0 ? 0.2 : -0.2;
-      group.add(vStrake);
-    });
+    // Ventral fins under the tail
+    const vFinsGeo = new THREE.BoxGeometry(0.04, 0.45, 1.2);
+    vFinsGeo.rotateX(-0.2);
+    const lVF = new THREE.Mesh(vFinsGeo, darkBodyMat);
+    lVF.position.set(0.35, -0.5, -3.2);
+    lVF.rotation.z = -0.25;
+    group.add(lVF);
+    const rVF = lVF.clone();
+    rVF.position.x = -0.35;
+    rVF.rotation.z = 0.25;
+    group.add(rVF);
 
-    // 6. Pratt & Whitney F100 Engine Exhaust Nozzle + Afterburner Plume
-    const nozzleGeo = new THREE.CylinderGeometry(0.42, 0.46, 0.9, 14, 1, true);
+    // 8. Pratt & Whitney F100 / GE F110 Engine Nozzle & Afterburner
+    const nozzleGeo = new THREE.CylinderGeometry(0.48, 0.52, 0.9, 14, 1, true);
     nozzleGeo.rotateX(Math.PI / 2);
-    const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
-    nozzle.position.set(0, 0.02, -4.1);
+    const nozzle = new THREE.Mesh(nozzleGeo, metalMat);
+    nozzle.position.set(0, -0.02, -4.5);
     group.add(nozzle);
 
-    const afterburner = this.createAfterburnerPlume(0.38, 2.6);
-    afterburner.position.set(0, 0.02, -4.55);
-    group.add(afterburner);
+    const abCone = new THREE.Mesh(new THREE.ConeGeometry(0.36, 1.8, 10), abFlameMat);
+    abCone.rotation.x = -Math.PI / 2;
+    abCone.position.set(0, -0.02, -5.2);
+    group.add(abCone);
 
-    // Armament: M61A1 Vulcan 20mm rotary cannon in left wing root shoulder
-    const gunPort = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8), nozzleMat);
-    gunPort.rotateX(Math.PI / 2);
-    gunPort.position.set(-0.55, 0.32, 1.8);
-    group.add(gunPort);
-
-    group.userData.gunMuzzles = [new THREE.Vector3(-0.55, 0.32, 2.1)];
-    group.userData.afterburners = [afterburner];
-    group.userData.cockpitPos = new THREE.Vector3(0, 0.72, 0.9);
-    group.userData.chaseOffset = new THREE.Vector3(0, 2.9, -9.0);
-    group.userData.isJet = true;
+    // Gun port for M61A1 Vulcan 20mm (port shoulder)
+    group.userData.gunMuzzles = [
+      new THREE.Vector3(-0.42, 0.28, 2.6),
+      new THREE.Vector3(0.42, 0.28, 2.6)
+    ];
+    group.userData.afterburners = [abCone];
+    group.userData.chaseOffset = new THREE.Vector3(0, 3.2, -13.8);
+    group.userData.cockpitPos = new THREE.Vector3(0, 0.52, 1.8);
 
     return group;
   },
 
-  // --- 2. F/A-18C HORNET (TWIN-ENGINE CARRIER FIGHTER) ---
+  // =========================================================================
+  // 2. BOEING F/A-18 HORNET (TWIN-ENGINE NAVAL & MULTIROLE FIGHTER)
+  // Twin canted vertical tails (20 deg), twin exhausts, prominent LERX, wingtip rails
+  // =========================================================================
   createF18() {
     const group = new THREE.Group();
-    group.name = 'FA18_Hornet';
 
-    const camoTexture = this.createCamoTexture('#94a3b8', '#64748b', 'organic');
-    const airframeMat = new THREE.MeshStandardMaterial({
-      map: camoTexture,
-      roughness: 0.5,
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8, // Light ghost grey
+      roughness: 0.4,
       metalness: 0.3
     });
-    const radomeMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.35, metalness: 0.2 });
-    const canopyMat = new THREE.MeshStandardMaterial({
-      color: '#0284c7',
-      roughness: 0.1,
-      metalness: 0.8,
-      opacity: 0.72,
-      transparent: true
+    const darkMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, // Dark ghost grey
+      roughness: 0.5,
+      metalness: 0.35
     });
-    const nozzleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.85, roughness: 0.2 });
-    const missileMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.3 });
+    const radomeMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4
+    });
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.85
+    });
+    const canopyMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      roughness: 0.1,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.65
+    });
+    const abFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.9
+    });
 
-    // 1. Aerodynamic Chined Fuselage
-    const bodyGeo = new THREE.CylinderGeometry(0.62, 0.52, 8.4, 14);
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, airframeMat);
-    body.scale.set(1.4, 0.65, 1.0);
-    group.add(body);
+    // 1. Wide twin-engine fuselage
+    const fuseGeo = new THREE.CylinderGeometry(0.85, 0.95, 8.8, 14);
+    fuseGeo.rotateX(Math.PI / 2);
+    fuseGeo.scale(1.4, 0.75, 1.0);
+    const fuselage = new THREE.Mesh(fuseGeo, bodyMat);
+    group.add(fuselage);
 
-    // Sharp Naval Radome Nose
-    const noseGeo = new THREE.ConeGeometry(0.55, 2.6, 14);
+    // Pointed radome nose
+    const noseGeo = new THREE.ConeGeometry(0.55, 3.2, 12);
     noseGeo.rotateX(-Math.PI / 2);
+    noseGeo.scale(1.2, 0.8, 1.0);
     const nose = new THREE.Mesh(noseGeo, radomeMat);
-    nose.position.z = 5.3;
-    nose.scale.set(1.15, 0.65, 1.0);
+    nose.position.set(0, -0.02, 5.6);
     group.add(nose);
 
-    // 2. Large Curved Leading-Edge Extensions (LEX / LERX)
-    const lexShape = new THREE.Shape();
-    lexShape.moveTo(0, 3.2);
-    lexShape.quadraticCurveTo(0.9, 1.8, 1.4, -0.2);
-    lexShape.lineTo(4.6, -1.0);
-    lexShape.lineTo(4.6, -2.1);
-    lexShape.lineTo(1.2, -2.1);
-    lexShape.lineTo(0, -2.1);
-    lexShape.closePath();
-
-    const lexExtrude = { depth: 0.08, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
-    const rWingGeo = new THREE.ExtrudeGeometry(lexShape, lexExtrude);
-    rWingGeo.translate(0, 0, -0.04);
-    rWingGeo.rotateX(Math.PI / 2);
-
-    const rWing = new THREE.Mesh(rWingGeo, airframeMat);
-    rWing.position.set(0, 0.05, 0);
-    group.add(rWing);
-
-    const lWingGeo = rWingGeo.clone();
-    lWingGeo.scale(-1, 1, 1);
-    const lWing = new THREE.Mesh(lWingGeo, airframeMat);
-    lWing.position.set(0, 0.05, 0);
-    group.add(lWing);
-
-    // Wingtip Sidewinder Missile Launchers
-    [-4.65, 4.65].forEach(wx => {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.3), airframeMat);
-      rail.position.set(wx, 0.05, -1.1);
-      group.add(rail);
-
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 8), missileMat);
-      m.rotation.x = Math.PI / 2;
-      m.position.set(wx, -0.05, -1.0);
-      group.add(m);
-    });
-
-    // 3. Cockpit & Pilot
-    const canopyGeo = new THREE.SphereGeometry(0.48, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    canopyGeo.scale(0.85, 0.95, 2.6);
+    // 2. Cockpit Canopy
+    const canopyGeo = new THREE.SphereGeometry(0.52, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    canopyGeo.scale(0.85, 0.9, 3.5);
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.38, 1.7);
+    canopy.position.set(0, 0.35, 2.2);
     group.add(canopy);
 
-    const pilotHead = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshStandardMaterial({ color: '#facc15' }));
-    pilotHead.position.set(0, 0.42, 1.6);
+    // Pilot head
+    const pilotHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x334155 })
+    );
+    pilotHead.position.set(0, 0.42, 2.0);
     group.add(pilotHead);
 
-    // 4. Twin Canted Vertical Stabilizers (outward cant ~20°)
+    // 3. Iconic curved Gothic LERX (Leading-Edge Root Extensions)
+    const lerxShape = new THREE.Shape();
+    lerxShape.moveTo(0, 4.0);
+    lerxShape.bezierCurveTo(0.4, 3.5, 0.9, 1.5, 1.2, 0.5);
+    lerxShape.lineTo(1.2, -1.5);
+    lerxShape.lineTo(0, -1.5);
+    lerxShape.closePath();
+
+    const lerxGeo = new THREE.ExtrudeGeometry(lerxShape, { depth: 0.1 });
+    lerxGeo.translate(0, 0, -0.05);
+    lerxGeo.rotateX(Math.PI / 2);
+
+    const lLerx = new THREE.Mesh(lerxGeo, darkMat);
+    lLerx.position.set(0.15, 0.02, 0);
+    group.add(lLerx);
+
+    const rLerxGeo = lerxGeo.clone();
+    rLerxGeo.scale(-1, 1, 1);
+    const rLerx = new THREE.Mesh(rLerxGeo, darkMat);
+    rLerx.position.set(-0.15, 0.02, 0);
+    group.add(rLerx);
+
+    // 4. Semi-elliptical D-shaped Intakes under LERX
+    const intakeGeo = new THREE.BoxGeometry(0.55, 0.45, 2.2);
+    const lIntake = new THREE.Mesh(intakeGeo, darkMat);
+    lIntake.position.set(0.8, -0.35, 0.8);
+    group.add(lIntake);
+
+    const rIntake = lIntake.clone();
+    rIntake.position.x = -0.8;
+    group.add(rIntake);
+
+    // 5. Main Wings with moderate sweep
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0, 0.5);
+    wingShape.lineTo(4.8, -1.2);
+    wingShape.lineTo(4.8, -2.4);
+    wingShape.lineTo(0, -2.4);
+    wingShape.closePath();
+
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+      depth: 0.12,
+      bevelEnabled: true,
+      bevelSize: 0.02,
+      bevelThickness: 0.02
+    });
+    wingGeo.translate(0, 0, -0.06);
+    wingGeo.rotateX(Math.PI / 2);
+
+    const lWing = new THREE.Mesh(wingGeo, bodyMat);
+    lWing.position.set(0.9, -0.02, 0);
+    group.add(lWing);
+
+    const rWingGeo = wingGeo.clone();
+    rWingGeo.scale(-1, 1, 1);
+    const rWing = new THREE.Mesh(rWingGeo, bodyMat);
+    rWing.position.set(-0.9, -0.02, 0);
+    group.add(rWing);
+
+    // Wingtip AIM-9 missile launchers
+    const createF18Wingtip = (xSign) => {
+      const g = new THREE.Group();
+      g.position.set(xSign * 5.75, -0.02, -1.8);
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.1), darkMat));
+      const miss = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 1.9, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc })
+      );
+      miss.rotation.x = Math.PI / 2;
+      g.add(miss);
+      return g;
+    };
+    group.add(createF18Wingtip(1));
+    group.add(createF18Wingtip(-1));
+
+    // 6. TWIN CANTED VERTICAL STABILIZERS (Angled outward by 20 degrees)
     const finShape = new THREE.Shape();
     finShape.moveTo(0, 0);
-    finShape.lineTo(-1.3, 2.2);
-    finShape.lineTo(-1.9, 2.2);
-    finShape.lineTo(-2.0, 0);
+    finShape.lineTo(-0.8, 2.3);
+    finShape.lineTo(-1.6, 2.3);
+    finShape.lineTo(-1.6, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.07, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 });
-    finGeo.translate(0, 0, -0.035);
-    finGeo.rotateY(-Math.PI / 2);
+    const vFinGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    vFinGeo.translate(0, 0, -0.04);
+    vFinGeo.rotateY(-Math.PI / 2);
 
-    const rFin = new THREE.Mesh(finGeo, airframeMat);
-    rFin.position.set(0.95, 0.35, -1.9);
-    rFin.rotation.z = -0.32; // Canted outward
-    group.add(rFin);
-
-    const lFinGeo = finGeo.clone();
-    lFinGeo.scale(-1, 1, 1);
-    const lFin = new THREE.Mesh(lFinGeo, airframeMat);
-    lFin.position.set(-0.95, 0.35, -1.9);
-    lFin.rotation.z = 0.32; // Canted outward
+    const lFin = new THREE.Mesh(vFinGeo, bodyMat);
+    lFin.position.set(0.65, 0.32, -2.5);
+    lFin.rotation.z = -0.35; // Canted outward ~20 degrees
     group.add(lFin);
 
-    // Horizontal Tailerons
-    const hTailGeo = new THREE.BoxGeometry(1.6, 0.06, 1.4);
-    const rHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    rHTail.position.set(1.4, -0.05, -3.2);
-    rHTail.rotation.z = -0.12;
-    group.add(rHTail);
+    const rFin = new THREE.Mesh(vFinGeo, bodyMat);
+    rFin.position.set(-0.65, 0.32, -2.5);
+    rFin.rotation.z = 0.35; // Canted outward ~20 degrees
+    group.add(rFin);
 
-    const lHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    lHTail.position.set(-1.4, -0.05, -3.2);
-    lHTail.rotation.z = 0.12;
-    group.add(lHTail);
+    // 7. Twin Low-Mounted Horizontal Stabilators
+    const stabShape = new THREE.Shape();
+    stabShape.moveTo(0, 0);
+    stabShape.lineTo(2.2, -1.1);
+    stabShape.lineTo(2.0, -1.8);
+    stabShape.lineTo(0, -1.8);
+    stabShape.closePath();
 
-    // 5. Twin General Electric F404 Turbofan Nozzles & Afterburners
-    const afterburners = [];
-    [-0.42, 0.42].forEach(ex => {
-      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.9, 12, 1, true), nozzleMat);
-      nozzle.rotation.x = Math.PI / 2;
-      nozzle.position.set(ex, 0, -4.3);
-      group.add(nozzle);
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    stabGeo.translate(0, 0, -0.03);
+    stabGeo.rotateX(Math.PI / 2);
 
-      const ab = this.createAfterburnerPlume(0.32, 2.4);
-      ab.position.set(ex, 0, -4.75);
-      group.add(ab);
-      afterburners.push(ab);
-    });
+    const lStab = new THREE.Mesh(stabGeo, darkMat);
+    lStab.position.set(0.8, -0.1, -3.8);
+    lStab.rotation.z = -0.1;
+    group.add(lStab);
 
-    // 6. Armament: Nose-Mounted M61A2 Vulcan 20mm Rotary Cannon
-    const gunPort = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), nozzleMat);
-    gunPort.rotateX(Math.PI / 2);
-    gunPort.position.set(0, 0.42, 4.2);
-    group.add(gunPort);
+    const rStabGeo = stabGeo.clone();
+    rStabGeo.scale(-1, 1, 1);
+    const rStab = new THREE.Mesh(rStabGeo, darkMat);
+    rStab.position.set(-0.8, -0.1, -3.8);
+    rStab.rotation.z = 0.1;
+    group.add(rStab);
 
-    group.userData.gunMuzzles = [new THREE.Vector3(0, 0.42, 4.5)];
-    group.userData.afterburners = afterburners;
-    group.userData.cockpitPos = new THREE.Vector3(0, 0.75, 1.3);
-    group.userData.chaseOffset = new THREE.Vector3(0, 3.1, -9.8);
-    group.userData.isJet = true;
+    // 8. Twin GE F404 Turbofan Nozzles & Afterburners
+    const nozzleGeo = new THREE.CylinderGeometry(0.38, 0.42, 0.8, 12, 1, true);
+    nozzleGeo.rotateX(Math.PI / 2);
+
+    const lNoz = new THREE.Mesh(nozzleGeo, metalMat);
+    lNoz.position.set(0.48, -0.05, -4.6);
+    group.add(lNoz);
+
+    const rNoz = lNoz.clone();
+    rNoz.position.x = -0.48;
+    group.add(rNoz);
+
+    const abConeGeo = new THREE.ConeGeometry(0.28, 1.6, 8);
+    abConeGeo.rotateX(-Math.PI / 2);
+
+    const lAB = new THREE.Mesh(abConeGeo, abFlameMat);
+    lAB.position.set(0.48, -0.05, -5.2);
+    group.add(lAB);
+
+    const rAB = lAB.clone();
+    rAB.position.x = -0.48;
+    group.add(rAB);
+
+    // Gun ports in nose cone
+    group.userData.gunMuzzles = [
+      new THREE.Vector3(-0.15, 0.28, 4.2),
+      new THREE.Vector3(0.15, 0.28, 4.2)
+    ];
+    group.userData.afterburners = [lAB, rAB];
+    group.userData.chaseOffset = new THREE.Vector3(0, 3.5, -14.8);
+    group.userData.cockpitPos = new THREE.Vector3(0, 0.54, 2.0);
 
     return group;
   },
 
-  // --- 3. F-22 RAPTOR (5TH GEN STEALTH AIR DOMINANCE FIGHTER) ---
+  // =========================================================================
+  // 3. LOCKHEED MARTIN F-22 RAPTOR (5TH GEN STEALTH AIR-SUPERIORITY FIGHTER)
+  // Faceted chine nose, diamond wings, canted twin rudders (28 deg), 2D vectoring nozzles
+  // =========================================================================
   createF22() {
     const group = new THREE.Group();
-    group.name = 'F22_Raptor';
 
-    const airframeMat = new THREE.MeshStandardMaterial({
-      color: '#334155', // Radar-absorbent dark slate / titanium
-      metalness: 0.7,
-      roughness: 0.35
+    // Radar-absorbent stealth coating (dark metallic sheen)
+    const stealthMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // Stealth gunmetal
+      roughness: 0.35,
+      metalness: 0.5
     });
-    const edgeMat = new THREE.MeshStandardMaterial({
-      color: '#475569', // RAM stealth edge coating
-      metalness: 0.6,
-      roughness: 0.4
+    const stealthLightMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, // Lighter stealth tone for wing edges
+      roughness: 0.3,
+      metalness: 0.45
+    });
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.85
     });
     const canopyMat = new THREE.MeshStandardMaterial({
-      color: '#ca8a04', // Indium tin oxide gold reflective stealth canopy
+      color: 0xd97706, // Gold indium stealth radar coating
       roughness: 0.1,
-      metalness: 0.9,
-      opacity: 0.8,
-      transparent: true
+      metalness: 0.4,
+      transparent: true,
+      opacity: 0.72
     });
-    const nozzleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.85, roughness: 0.25 });
+    const abFlameMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8, // Hot cyan/violet supercruise flame
+      transparent: true,
+      opacity: 0.95
+    });
 
-    // 1. Stealth Faceted Diamond Fuselage
-    const bodyGeo = new THREE.CylinderGeometry(0.72, 0.65, 8.8, 8); // Octagonal stealth cross section
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, airframeMat);
-    body.scale.set(1.5, 0.55, 1.0);
-    group.add(body);
-
-    // Chined Stealth Radome Nose
-    const noseGeo = new THREE.ConeGeometry(0.68, 3.0, 6); // Hexagonal faceted stealth nose
+    // 1. Faceted Diamond Nose & Chine Line
+    const noseGeo = new THREE.ConeGeometry(0.7, 3.8, 4);
     noseGeo.rotateX(-Math.PI / 2);
-    const nose = new THREE.Mesh(noseGeo, edgeMat);
-    nose.position.z = 5.6;
-    nose.scale.set(1.2, 0.52, 1.0);
+    noseGeo.rotateZ(Math.PI / 4); // Faceted diamond cross-section!
+    noseGeo.scale(1.5, 0.65, 1.0);
+    const nose = new THREE.Mesh(noseGeo, stealthMat);
+    nose.position.set(0, -0.05, 5.2);
     group.add(nose);
 
-    // 2. Clipped Diamond Stealth Wings (42° sweep leading edge)
+    // Main blended faceted body
+    const bodyGeo = new THREE.BoxGeometry(2.4, 0.72, 7.8);
+    const body = new THREE.Mesh(bodyGeo, stealthMat);
+    body.position.set(0, 0, -0.2);
+    group.add(body);
+
+    // 2. Gold indium stealth bubble canopy
+    const canopyGeo = new THREE.SphereGeometry(0.55, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    canopyGeo.scale(0.9, 0.85, 3.4);
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.set(0, 0.36, 1.8);
+    group.add(canopy);
+
+    const pilot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a })
+    );
+    pilot.position.set(0, 0.42, 1.6);
+    group.add(pilot);
+
+    // 3. Caret-style Diamond Stealth Air Intakes (Fuselage sides)
+    const intakeGeo = new THREE.BoxGeometry(0.75, 0.65, 3.2);
+    const lIntake = new THREE.Mesh(intakeGeo, stealthLightMat);
+    lIntake.rotation.y = -0.15; // Authentic Caret intake angle
+    lIntake.position.set(1.4, -0.15, 1.2);
+    group.add(lIntake);
+
+    const rIntake = lIntake.clone();
+    rIntake.rotation.y = 0.15;
+    rIntake.position.x = -1.4;
+    group.add(rIntake);
+
+    // 4. Clipped Diamond Wings (42-deg leading edge sweep, 17-deg trailing edge sweep)
     const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 2.5);
-    wingShape.lineTo(1.2, 1.2);
-    wingShape.lineTo(5.2, -1.2); // Wingtip
-    wingShape.lineTo(5.2, -2.1);
-    wingShape.lineTo(1.1, -2.8); // Trailing edge forward rake
+    wingShape.moveTo(0, 2.2);
+    wingShape.lineTo(5.8, -1.8);
+    wingShape.lineTo(5.4, -2.8);
     wingShape.lineTo(0, -2.8);
     wingShape.closePath();
 
-    const wingExtrude = { depth: 0.09, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
-    const rWingGeo = new THREE.ExtrudeGeometry(wingShape, wingExtrude);
-    rWingGeo.translate(0, 0, -0.045);
-    rWingGeo.rotateX(Math.PI / 2);
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+      depth: 0.12,
+      bevelEnabled: true,
+      bevelSize: 0.03,
+      bevelThickness: 0.03
+    });
+    wingGeo.translate(0, 0, -0.06);
+    wingGeo.rotateX(Math.PI / 2);
 
-    const rWing = new THREE.Mesh(rWingGeo, airframeMat);
-    rWing.position.set(0, 0.04, 0);
-    group.add(rWing);
-
-    const lWingGeo = rWingGeo.clone();
-    lWingGeo.scale(-1, 1, 1);
-    const lWing = new THREE.Mesh(lWingGeo, airframeMat);
-    lWing.position.set(0, 0.04, 0);
+    const lWing = new THREE.Mesh(wingGeo, stealthLightMat);
+    lWing.position.set(1.1, 0, 0);
     group.add(lWing);
 
-    // 3. Stealth Faceted Canopy & Cockpit
-    const canopyGeo = new THREE.SphereGeometry(0.5, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-    canopyGeo.scale(0.85, 0.95, 2.7);
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.38, 1.8);
-    group.add(canopy);
+    const rWingGeo = wingGeo.clone();
+    rWingGeo.scale(-1, 1, 1);
+    const rWing = new THREE.Mesh(rWingGeo, stealthLightMat);
+    rWing.position.set(-1.1, 0, 0);
+    group.add(rWing);
 
-    const pilotHead = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
-    pilotHead.position.set(0, 0.42, 1.7);
-    group.add(pilotHead);
-
-    // 4. Twin Canted Vertical Stabilizers (28° outward cant angle)
+    // 5. Twin Stealth Outward-Canted Vertical Fins (canted 28 degrees)
     const finShape = new THREE.Shape();
     finShape.moveTo(0, 0);
     finShape.lineTo(-1.2, 2.4);
@@ -2300,467 +2314,569 @@ const PlaneModels = {
     finShape.lineTo(-2.2, 0);
     finShape.closePath();
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 });
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
     finGeo.translate(0, 0, -0.04);
     finGeo.rotateY(-Math.PI / 2);
 
-    const rFin = new THREE.Mesh(finGeo, edgeMat);
-    rFin.position.set(1.15, 0.3, -2.1);
-    rFin.rotation.z = -0.48; // 28 degrees cant
-    group.add(rFin);
-
-    const lFinGeo = finGeo.clone();
-    lFinGeo.scale(-1, 1, 1);
-    const lFin = new THREE.Mesh(lFinGeo, edgeMat);
-    lFin.position.set(-1.15, 0.3, -2.1);
-    lFin.rotation.z = 0.48;
+    const lFin = new THREE.Mesh(finGeo, stealthMat);
+    lFin.position.set(1.05, 0.35, -2.2);
+    lFin.rotation.z = -0.48; // ~28 degrees cant
     group.add(lFin);
 
-    // Diamond Stealth Tailerons
-    const hTailGeo = new THREE.BoxGeometry(1.8, 0.06, 1.6);
-    const rHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    rHTail.position.set(1.6, -0.06, -3.5);
-    rHTail.rotation.z = -0.15;
-    group.add(rHTail);
+    const rFin = new THREE.Mesh(finGeo, stealthMat);
+    rFin.position.set(-1.05, 0.35, -2.2);
+    rFin.rotation.z = 0.48; // ~28 degrees cant
+    group.add(rFin);
 
-    const lHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    lHTail.position.set(-1.6, -0.06, -3.5);
-    lHTail.rotation.z = 0.15;
-    group.add(lHTail);
+    // 6. Diamond Horizontal All-Moving Stabilators
+    const stabShape = new THREE.Shape();
+    stabShape.moveTo(0, 0);
+    stabShape.lineTo(2.4, -1.4);
+    stabShape.lineTo(2.0, -2.2);
+    stabShape.lineTo(0, -2.2);
+    stabShape.closePath();
 
-    // 5. 2D Thrust-Vectoring Rectangular Stealth Exhaust Nozzles (Pratt & Whitney F119)
-    const afterburners = [];
-    [-0.5, 0.5].forEach(ex => {
-      const nozzle = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.32, 0.9), nozzleMat);
-      nozzle.position.set(ex, 0, -4.6);
-      group.add(nozzle);
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    stabGeo.translate(0, 0, -0.03);
+    stabGeo.rotateX(Math.PI / 2);
 
-      const ab = this.createAfterburnerPlume(0.34, 2.6);
-      ab.position.set(ex, 0, -5.1);
-      group.add(ab);
-      afterburners.push(ab);
-    });
+    const lStab = new THREE.Mesh(stabGeo, stealthLightMat);
+    lStab.position.set(1.15, -0.05, -3.8);
+    group.add(lStab);
 
-    // 6. Armament: Internal Stealth M61A2 Vulcan Gun Port in Right Shoulder
-    const gunTrough = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.6), nozzleMat);
-    gunTrough.position.set(0.68, 0.45, 1.8);
-    group.add(gunTrough);
+    const rStabGeo = stabGeo.clone();
+    rStabGeo.scale(-1, 1, 1);
+    const rStab = new THREE.Mesh(rStabGeo, stealthLightMat);
+    rStab.position.set(-1.15, -0.05, -3.8);
+    group.add(rStab);
 
-    group.userData.gunMuzzles = [new THREE.Vector3(0.68, 0.45, 2.2)];
-    group.userData.afterburners = afterburners;
-    group.userData.cockpitPos = new THREE.Vector3(0, 0.78, 1.35);
-    group.userData.chaseOffset = new THREE.Vector3(0, 3.2, -10.5);
-    group.userData.isJet = true;
+    // 7. 2D Thrust-Vectoring Flat Rectangular Stealth Nozzles with serrated edges
+    const nozzleGeo = new THREE.BoxGeometry(0.85, 0.32, 1.2);
+    const lNoz = new THREE.Mesh(nozzleGeo, metalMat);
+    lNoz.position.set(0.55, -0.05, -4.6);
+    group.add(lNoz);
+
+    const rNoz = lNoz.clone();
+    rNoz.position.x = -0.55;
+    group.add(rNoz);
+
+    // Glowing cyan/violet 2D supercruise jet flames
+    const flameGeo = new THREE.BoxGeometry(0.72, 0.22, 2.2);
+    const lFlame = new THREE.Mesh(flameGeo, abFlameMat);
+    lFlame.position.set(0.55, -0.05, -5.6);
+    group.add(lFlame);
+
+    const rFlame = lFlame.clone();
+    rFlame.position.x = -0.55;
+    group.add(rFlame);
+
+    // Concealed M61A2 cannon port
+    group.userData.gunMuzzles = [
+      new THREE.Vector3(0.5, 0.32, 2.2),
+      new THREE.Vector3(-0.5, 0.32, 2.2)
+    ];
+    group.userData.afterburners = [lFlame, rFlame];
+    group.userData.chaseOffset = new THREE.Vector3(0, 3.7, -15.8);
+    group.userData.cockpitPos = new THREE.Vector3(0, 0.54, 1.7);
 
     return group;
   },
 
-  // --- 4. F-35A LIGHTNING II ("HUSARZ" - SIŁY POWIETRZNE RP) ---
+  // =========================================================================
+  // 4. LOCKHEED MARTIN F-35A LIGHTNING II "HUSARZ" (POLISH AIR FORCE 5TH GEN)
+  // Single Pratt & Whitney F135, DSI bumps, faceted stealth canopy, Polish insignia
+  // =========================================================================
   createF35() {
     const group = new THREE.Group();
-    group.name = 'F35_Husarz';
 
-    const airframeMat = new THREE.MeshStandardMaterial({
-      color: '#475569', // Radar-absorbent tactical Have Glass V coating
-      metalness: 0.65,
-      roughness: 0.38
+    const stealthMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, // Modern 5th-gen slate stealth
+      roughness: 0.35,
+      metalness: 0.4
     });
-    const edgeMat = new THREE.MeshStandardMaterial({
-      color: '#64748b', // Lighter RAM sawtooth edge tape
-      metalness: 0.5,
-      roughness: 0.4
+    const darkStealthMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4,
+      metalness: 0.45
+    });
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.85
     });
     const canopyMat = new THREE.MeshStandardMaterial({
-      color: '#0369a1', // Deep electro-optical electrochromic stealth canopy
-      roughness: 0.12,
-      metalness: 0.85,
-      opacity: 0.78,
-      transparent: true
+      color: 0xeab308, // Gold-amber faceted stealth canopy
+      roughness: 0.1,
+      metalness: 0.35,
+      transparent: true,
+      opacity: 0.7
     });
-    const nozzleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.85, roughness: 0.2 });
+    const abFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.95
+    });
 
-    // 1. Bulky Chined Stealth Fuselage with Integrated Weapons Bays
-    const bodyGeo = new THREE.CylinderGeometry(0.78, 0.65, 8.2, 10);
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, airframeMat);
-    body.scale.set(1.45, 0.68, 1.0);
-    group.add(body);
+    // 1. Faceted blended fuselage
+    const fuseGeo = new THREE.CylinderGeometry(0.85, 0.95, 8.2, 12);
+    fuseGeo.rotateX(Math.PI / 2);
+    fuseGeo.scale(1.4, 0.8, 1.0);
+    const fuselage = new THREE.Mesh(fuseGeo, stealthMat);
+    group.add(fuselage);
 
-    // Chined Stealth Radome Nose
-    const noseGeo = new THREE.ConeGeometry(0.62, 2.6, 8);
+    // Pointed faceted chine nose
+    const noseGeo = new THREE.ConeGeometry(0.68, 3.4, 6);
     noseGeo.rotateX(-Math.PI / 2);
-    const nose = new THREE.Mesh(noseGeo, edgeMat);
-    nose.position.z = 5.2;
-    nose.scale.set(1.2, 0.6, 1.0);
+    noseGeo.scale(1.3, 0.75, 1.0);
+    const nose = new THREE.Mesh(noseGeo, darkStealthMat);
+    nose.position.set(0, -0.04, 5.4);
     group.add(nose);
 
-    // EOTS Sapphire Glass Electro-Optical Sensor under nose
-    const eots = new THREE.Mesh(
-      new THREE.ConeGeometry(0.18, 0.35, 6),
-      new THREE.MeshBasicMaterial({ color: '#38bdf8' })
+    // 2. DSI (Diverterless Supersonic Intake) 3D compression bumps & side scoops
+    const dsiBumpGeo = new THREE.SphereGeometry(0.38, 10, 8);
+    dsiBumpGeo.scale(0.8, 0.6, 2.0);
+
+    const lBump = new THREE.Mesh(dsiBumpGeo, darkStealthMat);
+    lBump.position.set(1.0, -0.15, 1.4);
+    group.add(lBump);
+
+    const rBump = lBump.clone();
+    rBump.position.x = -1.0;
+    group.add(rBump);
+
+    // 3. Faceted Stealth Canopy & HMDS Helmet
+    const canopyGeo = new THREE.SphereGeometry(0.55, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    canopyGeo.scale(0.88, 0.9, 3.4);
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.set(0, 0.38, 1.9);
+    group.add(canopy);
+
+    const pilotHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a }) // Gen III HMDS helmet
     );
-    eots.rotation.x = Math.PI / 2;
-    eots.position.set(0, -0.42, 4.4);
-    group.add(eots);
+    pilotHead.position.set(0, 0.44, 1.6);
+    group.add(pilotHead);
 
-    // 2. Diverterless Supersonic Intakes (DSI) on fuselage flanks
-    [-0.85, 0.85].forEach((ix, idx) => {
-      const dsi = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 1.8), airframeMat);
-      dsi.position.set(ix, -0.15, 1.4);
-      dsi.rotation.y = idx === 0 ? 0.08 : -0.08;
-      group.add(dsi);
-
-      const dsiHole = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.3, 0.1), new THREE.MeshBasicMaterial({ color: '#090d16' }));
-      dsiHole.position.set(ix, -0.15, 2.3);
-      group.add(dsiHole);
-    });
-
-    // 3. Trapezoidal Stealth Wings
+    // 4. Trapezoidal Stealth Wings
     const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 2.2);
-    wingShape.lineTo(1.1, 0.8);
-    wingShape.lineTo(4.6, -0.8); // Wingtip
-    wingShape.lineTo(4.6, -1.8);
-    wingShape.lineTo(1.0, -2.4); // Trailing edge
+    wingShape.moveTo(0, 2.5);
+    wingShape.lineTo(5.1, -1.2);
+    wingShape.lineTo(4.8, -2.4);
     wingShape.lineTo(0, -2.4);
     wingShape.closePath();
 
-    const wingExtrude = { depth: 0.09, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
-    const rWingGeo = new THREE.ExtrudeGeometry(wingShape, wingExtrude);
-    rWingGeo.translate(0, 0, -0.045);
-    rWingGeo.rotateX(Math.PI / 2);
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+      depth: 0.12,
+      bevelEnabled: true,
+      bevelSize: 0.025,
+      bevelThickness: 0.025
+    });
+    wingGeo.translate(0, 0, -0.06);
+    wingGeo.rotateX(Math.PI / 2);
 
-    const rWing = new THREE.Mesh(rWingGeo, airframeMat);
-    rWing.position.set(0, 0.03, 0);
-    group.add(rWing);
-
-    const lWingGeo = rWingGeo.clone();
-    lWingGeo.scale(-1, 1, 1);
-    const lWing = new THREE.Mesh(lWingGeo, airframeMat);
-    lWing.position.set(0, 0.03, 0);
+    const lWing = new THREE.Mesh(wingGeo, stealthMat);
+    lWing.position.set(0.9, 0, 0);
     group.add(lWing);
 
-    // 4. Cockpit & Pilot
-    const canopyGeo = new THREE.SphereGeometry(0.48, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-    canopyGeo.scale(0.85, 0.95, 2.5);
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.42, 1.5);
-    group.add(canopy);
+    const rWingGeo = wingGeo.clone();
+    rWingGeo.scale(-1, 1, 1);
+    const rWing = new THREE.Mesh(rWingGeo, stealthMat);
+    rWing.position.set(-0.9, 0, 0);
+    group.add(rWing);
 
-    const pilotHead = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshStandardMaterial({ color: '#334155' }));
-    pilotHead.position.set(0, 0.45, 1.4);
-    group.add(pilotHead);
-
-    // 5. Twin Canted Vertical Stabilizers with Polish Air Force Low-Vis Chessboard!
-    const finShape = new THREE.Shape();
-    finShape.moveTo(0, 0);
-    finShape.lineTo(-1.1, 2.2);
-    finShape.lineTo(-1.8, 2.2);
-    finShape.lineTo(-1.9, 0);
-    finShape.closePath();
-
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.07, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 });
-    finGeo.translate(0, 0, -0.035);
-    finGeo.rotateY(-Math.PI / 2);
-
-    const rFin = new THREE.Mesh(finGeo, edgeMat);
-    rFin.position.set(1.05, 0.32, -1.9);
-    rFin.rotation.z = -0.38;
-    group.add(rFin);
-
-    const lFinGeo = finGeo.clone();
-    lFinGeo.scale(-1, 1, 1);
-    const lFin = new THREE.Mesh(lFinGeo, edgeMat);
-    lFin.position.set(-1.05, 0.32, -1.9);
-    lFin.rotation.z = 0.38;
-    group.add(lFin);
-
-    // Polish Low-Vis Chessboard decal on tail
+    // Polish Air Force Chessboard Insignia on Wings
     const checkerMat = new THREE.MeshBasicMaterial({
-      map: this.createLowVisPolishChessboardTexture(),
+      map: this.createPolishChessboardTexture(),
       transparent: true,
       polygonOffset: true,
       polygonOffsetFactor: -2
     });
-    const checkerPlane = new THREE.PlaneGeometry(0.52, 0.52);
+    const wingDecal = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), checkerMat);
+    wingDecal.rotation.x = -Math.PI / 2;
+    wingDecal.position.set(2.6, 0.08, -1.0);
+    group.add(wingDecal);
 
-    const lChecker = new THREE.Mesh(checkerPlane, checkerMat);
-    lChecker.position.set(-1.22, 1.7, -2.6);
-    lChecker.rotation.y = -Math.PI / 2;
-    lChecker.rotation.x = -0.38;
-    group.add(lChecker);
+    // 5. Twin Canted Vertical Fins (canted 20 deg) with Polish Chessboard
+    const finShape = new THREE.Shape();
+    finShape.moveTo(0, 0);
+    finShape.lineTo(-1.1, 2.4);
+    finShape.lineTo(-1.9, 2.4);
+    finShape.lineTo(-1.9, 0);
+    finShape.closePath();
 
-    const rChecker = new THREE.Mesh(checkerPlane, checkerMat);
-    rChecker.position.set(1.22, 1.7, -2.6);
-    rChecker.rotation.y = Math.PI / 2;
-    rChecker.rotation.x = 0.38;
-    group.add(rChecker);
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    finGeo.translate(0, 0, -0.04);
+    finGeo.rotateY(-Math.PI / 2);
 
-    // Horizontal Tailerons
-    const hTailGeo = new THREE.BoxGeometry(1.5, 0.06, 1.3);
-    const rHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    rHTail.position.set(1.4, -0.06, -3.2);
-    rHTail.rotation.z = -0.12;
-    group.add(rHTail);
+    const lFin = new THREE.Mesh(finGeo, stealthMat);
+    lFin.position.set(0.95, 0.32, -2.1);
+    lFin.rotation.z = -0.35; // 20 deg cant
+    group.add(lFin);
 
-    const lHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    lHTail.position.set(-1.4, -0.06, -3.2);
-    lHTail.rotation.z = 0.12;
-    group.add(lHTail);
+    const rFin = new THREE.Mesh(finGeo, stealthMat);
+    rFin.position.set(-0.95, 0.32, -2.1);
+    rFin.rotation.z = 0.35;
+    group.add(rFin);
 
-    // 6. Pratt & Whitney F135 Engine - Massive Single Stealth Serrated Nozzle
-    const nozzleGeo = new THREE.CylinderGeometry(0.48, 0.54, 0.9, 16, 1, true);
+    // Tail fin Polish insignia
+    const finDecal = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), checkerMat);
+    finDecal.position.set(1.48, 1.5, -3.2);
+    finDecal.rotation.y = Math.PI / 2;
+    finDecal.rotation.x = -0.35;
+    group.add(finDecal);
+
+    // 6. Horizontal Stabilators
+    const stabShape = new THREE.Shape();
+    stabShape.moveTo(0, 0);
+    stabShape.lineTo(2.2, -1.3);
+    stabShape.lineTo(1.8, -1.9);
+    stabShape.lineTo(0, -1.9);
+    stabShape.closePath();
+
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    stabGeo.translate(0, 0, -0.03);
+    stabGeo.rotateX(Math.PI / 2);
+
+    const lStab = new THREE.Mesh(stabGeo, darkStealthMat);
+    lStab.position.set(0.95, -0.05, -3.7);
+    group.add(lStab);
+
+    const rStabGeo = stabGeo.clone();
+    rStabGeo.scale(-1, 1, 1);
+    const rStab = new THREE.Mesh(rStabGeo, darkStealthMat);
+    rStab.position.set(-0.95, -0.05, -3.7);
+    group.add(rStab);
+
+    // 7. Single Pratt & Whitney F135 Engine with Faceted Sawtooth Stealth Nozzle
+    const nozzleGeo = new THREE.CylinderGeometry(0.58, 0.65, 0.9, 12, 1, true);
     nozzleGeo.rotateX(Math.PI / 2);
-    const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
-    nozzle.position.set(0, 0.05, -4.3);
+    const nozzle = new THREE.Mesh(nozzleGeo, metalMat);
+    nozzle.position.set(0, -0.02, -4.4);
     group.add(nozzle);
 
-    const afterburner = this.createAfterburnerPlume(0.44, 2.7);
-    afterburner.position.set(0, 0.05, -4.8);
-    group.add(afterburner);
+    const abCone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.0, 10), abFlameMat);
+    abCone.rotation.x = -Math.PI / 2;
+    abCone.position.set(0, -0.02, -5.3);
+    group.add(abCone);
 
-    // 7. Armament: Internal GAU-22/A 25mm 4-barrel Gatling Cannon in Left Shoulder
-    const gunPort = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.6), nozzleMat);
-    gunPort.position.set(-0.62, 0.48, 1.6);
-    group.add(gunPort);
-
-    group.userData.gunMuzzles = [new THREE.Vector3(-0.62, 0.48, 2.0)];
-    group.userData.afterburners = [afterburner];
-    group.userData.cockpitPos = new THREE.Vector3(0, 0.76, 1.15);
-    group.userData.chaseOffset = new THREE.Vector3(0, 3.0, -9.8);
-    group.userData.isJet = true;
+    // GAU-22/A 25mm Equalizer cannon port
+    group.userData.gunMuzzles = [
+      new THREE.Vector3(-0.45, 0.32, 2.4),
+      new THREE.Vector3(0.45, 0.32, 2.4)
+    ];
+    group.userData.afterburners = [abCone];
+    group.userData.chaseOffset = new THREE.Vector3(0, 3.4, -14.2);
+    group.userData.cockpitPos = new THREE.Vector3(0, 0.56, 1.7);
 
     return group;
   },
 
-  // --- 5. HOSTILE MODERN JET (SU-27 / MIG-29 / SU-57 STYLE AGGRESSOR) ---
-  createHostileModernJet(isAce = false) {
+  // =========================================================================
+  // 5. HOSTILE MODERN COMBAT JET (SU-27 / FLANKER STYLE ENEMY INTERCEPTOR)
+  // Twin engine nacelles, drooping nose, central stinger boom, twin vertical fins
+  // =========================================================================
+  createModernFighter() {
     const group = new THREE.Group();
-    group.name = isAce ? 'HostileModernAce' : 'HostileModernJet';
 
-    const camoTexture = this.createCamoTexture(isAce ? '#0f172a' : '#1e3a8a', '#334155', 'splinter');
-    const airframeMat = new THREE.MeshStandardMaterial({
-      map: camoTexture,
-      roughness: 0.45,
-      metalness: 0.35
+    const camoMat = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6, // Flanker air-superiority blue-grey
+      roughness: 0.5,
+      metalness: 0.25
     });
-    const noseMat = new THREE.MeshStandardMaterial({
-      color: isAce ? '#020617' : '#e2e8f0', // White/black radome
-      roughness: 0.3,
-      metalness: 0.2
+    const darkCamoMat = new THREE.MeshStandardMaterial({
+      color: 0x1d4ed8, // Dark camouflage patches
+      roughness: 0.55,
+      metalness: 0.3
+    });
+    const radomeMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc, // White radome
+      roughness: 0.4
+    });
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.85
     });
     const canopyMat = new THREE.MeshStandardMaterial({
-      color: '#38bdf8',
-      roughness: 0.15,
-      metalness: 0.7,
-      opacity: 0.7,
-      transparent: true
+      color: 0x0284c7,
+      roughness: 0.1,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.7
     });
-    const nozzleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.85, roughness: 0.25 });
+    const abFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.95
+    });
 
-    // 1. Long Curved Aerodynamic Fuselage
-    const bodyGeo = new THREE.CylinderGeometry(0.65, 0.48, 8.6, 14);
-    bodyGeo.rotateX(Math.PI / 2);
-    const body = new THREE.Mesh(bodyGeo, airframeMat);
-    body.scale.set(1.4, 0.6, 1.0);
-    group.add(body);
+    // 1. Long drooping Flanker fuselage & nose
+    const fuseGeo = new THREE.CylinderGeometry(0.7, 0.85, 9.5, 12);
+    fuseGeo.rotateX(Math.PI / 2);
+    fuseGeo.scale(1.3, 0.75, 1.0);
+    const fuselage = new THREE.Mesh(fuseGeo, camoMat);
+    group.add(fuselage);
 
-    // Drooped Needle Radome Nose
-    const noseGeo = new THREE.ConeGeometry(0.52, 2.8, 12);
+    // Drooping radome needle nose
+    const noseGeo = new THREE.ConeGeometry(0.55, 3.6, 12);
     noseGeo.rotateX(-Math.PI / 2);
-    const nose = new THREE.Mesh(noseGeo, noseMat);
-    nose.position.set(0, -0.1, 5.4);
-    nose.scale.set(1.15, 0.6, 1.0);
+    noseGeo.rotateX(-0.06); // Characteristic Flanker nose droop
+    const nose = new THREE.Mesh(noseGeo, radomeMat);
+    nose.position.set(0, -0.15, 6.2);
     group.add(nose);
 
-    // Pitot probe needle
-    const pitot = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6), noseMat);
-    pitot.rotation.x = Math.PI / 2;
-    pitot.position.set(0, -0.1, 6.9);
-    group.add(pitot);
-
-    // 2. Swept Delta Wings with Aggressive LERX
-    const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 3.0);
-    wingShape.quadraticCurveTo(0.8, 1.6, 1.3, 0.2);
-    wingShape.lineTo(4.8, -0.8);
-    wingShape.lineTo(4.8, -1.9);
-    wingShape.lineTo(1.1, -2.1);
-    wingShape.lineTo(0, -2.1);
-    wingShape.closePath();
-
-    const wingGeo = new THREE.ExtrudeGeometry(wingShape, { depth: 0.08, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 });
-    wingGeo.translate(0, 0, -0.04);
-    wingGeo.rotateX(Math.PI / 2);
-
-    const rWing = new THREE.Mesh(wingGeo, airframeMat);
-    rWing.position.set(0, 0.02, 0);
-    group.add(rWing);
-
-    const lWingGeo = wingGeo.clone();
-    lWingGeo.scale(-1, 1, 1);
-    const lWing = new THREE.Mesh(lWingGeo, airframeMat);
-    lWing.position.set(0, 0.02, 0);
-    group.add(lWing);
-
-    // 3. Cockpit & Canopy
-    const canopyGeo = new THREE.SphereGeometry(0.46, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-    canopyGeo.scale(0.85, 0.95, 2.5);
+    // 2. Cockpit Canopy
+    const canopyGeo = new THREE.SphereGeometry(0.5, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    canopyGeo.scale(0.85, 0.85, 3.2);
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 0.35, 1.6);
+    canopy.position.set(0, 0.38, 2.2);
     group.add(canopy);
 
-    // 4. Twin Vertical Stabilizers with Hostile Red Star Decals
-    const finShape = new THREE.Shape();
-    finShape.moveTo(0, 0);
-    finShape.lineTo(-1.3, 2.3);
-    finShape.lineTo(-2.0, 2.3);
-    finShape.lineTo(-2.0, 0);
-    finShape.closePath();
+    // 3. Widely separated twin engine nacelles & intakes
+    const nacelleGeo = new THREE.CylinderGeometry(0.48, 0.52, 6.2, 12);
+    nacelleGeo.rotateX(Math.PI / 2);
 
-    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.07, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 });
-    finGeo.translate(0, 0, -0.035);
-    finGeo.rotateY(-Math.PI / 2);
+    const lNacelle = new THREE.Mesh(nacelleGeo, darkCamoMat);
+    lNacelle.position.set(0.9, -0.32, -1.0);
+    group.add(lNacelle);
 
-    const starMat = new THREE.MeshBasicMaterial({
+    const rNacelle = lNacelle.clone();
+    rNacelle.position.x = -0.9;
+    group.add(rNacelle);
+
+    // 4. Central tail "stinger" boom extending past the exhausts
+    const stingerGeo = new THREE.CylinderGeometry(0.2, 0.05, 3.2, 8);
+    stingerGeo.rotateX(Math.PI / 2);
+    const stinger = new THREE.Mesh(stingerGeo, darkCamoMat);
+    stinger.position.set(0, -0.1, -5.2);
+    group.add(stinger);
+
+    // 5. Swept Wings with LERX
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0, 2.5);
+    wingShape.lineTo(5.6, -1.5);
+    wingShape.lineTo(5.2, -2.6);
+    wingShape.lineTo(0, -2.6);
+    wingShape.closePath();
+
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+      depth: 0.12,
+      bevelEnabled: true,
+      bevelSize: 0.02,
+      bevelThickness: 0.02
+    });
+    wingGeo.translate(0, 0, -0.06);
+    wingGeo.rotateX(Math.PI / 2);
+
+    const lWing = new THREE.Mesh(wingGeo, camoMat);
+    lWing.position.set(0.8, -0.02, 0);
+    group.add(lWing);
+
+    const rWingGeo = wingGeo.clone();
+    rWingGeo.scale(-1, 1, 1);
+    const rWing = new THREE.Mesh(rWingGeo, camoMat);
+    rWing.position.set(-0.8, -0.02, 0);
+    group.add(rWing);
+
+    // Wingtip ECM pods
+    const podGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.2, 8);
+    podGeo.rotateX(Math.PI / 2);
+    const lPod = new THREE.Mesh(podGeo, metalMat);
+    lPod.position.set(6.0, -0.02, -2.0);
+    group.add(lPod);
+    const rPod = lPod.clone();
+    rPod.position.x = -6.0;
+    group.add(rPod);
+
+    // Hostile Red Star markings on wings
+    const redStarMat = new THREE.MeshBasicMaterial({
       map: this.createRedStarTexture(),
       transparent: true,
       polygonOffset: true,
       polygonOffsetFactor: -2
     });
-    const starPlane = new THREE.PlaneGeometry(0.55, 0.55);
+    const starDecalL = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), redStarMat);
+    starDecalL.rotation.x = -Math.PI / 2;
+    starDecalL.position.set(3.2, 0.08, -1.2);
+    group.add(starDecalL);
 
-    [-0.95, 0.95].forEach((fx, idx) => {
-      const fin = new THREE.Mesh(finGeo, airframeMat);
-      fin.position.set(fx, 0.35, -1.8);
-      fin.rotation.z = idx === 0 ? 0.12 : -0.12;
-      group.add(fin);
+    const starDecalR = starDecalL.clone();
+    starDecalR.position.x = -3.2;
+    group.add(starDecalR);
 
-      const star = new THREE.Mesh(starPlane, starMat);
-      star.position.set(fx + (idx === 0 ? -0.05 : 0.05), 1.9, -2.5);
-      star.rotation.y = idx === 0 ? -Math.PI / 2 : Math.PI / 2;
-      group.add(star);
-    });
+    // 6. Twin Tall Vertical Stabilizers with hostile red stars
+    const finShape = new THREE.Shape();
+    finShape.moveTo(0, 0);
+    finShape.lineTo(-0.8, 2.6);
+    finShape.lineTo(-1.8, 2.6);
+    finShape.lineTo(-1.8, 0);
+    finShape.closePath();
 
-    // Horizontal All-Moving Stabilators
-    const hTailGeo = new THREE.BoxGeometry(1.7, 0.06, 1.4);
-    const rHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    rHTail.position.set(1.4, -0.05, -3.2);
-    group.add(rHTail);
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.08 });
+    finGeo.translate(0, 0, -0.04);
+    finGeo.rotateY(-Math.PI / 2);
 
-    const lHTail = new THREE.Mesh(hTailGeo, airframeMat);
-    lHTail.position.set(-1.4, -0.05, -3.2);
-    group.add(lHTail);
+    const lFin = new THREE.Mesh(finGeo, camoMat);
+    lFin.position.set(0.95, 0.35, -2.6);
+    group.add(lFin);
 
-    // 5. Twin Underslung Turbofan Engines & Dual Afterburners
-    const afterburners = [];
-    [-0.48, 0.48].forEach(ex => {
-      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.4, 0.9, 12, 1, true), nozzleMat);
-      nozzle.rotation.x = Math.PI / 2;
-      nozzle.position.set(ex, -0.1, -4.4);
-      group.add(nozzle);
+    const rFin = new THREE.Mesh(finGeo, camoMat);
+    rFin.position.set(-0.95, 0.35, -2.6);
+    group.add(rFin);
 
-      const ab = this.createAfterburnerPlume(0.33, 2.5);
-      ab.position.set(ex, -0.1, -4.9);
-      group.add(ab);
-      afterburners.push(ab);
-    });
+    const starFin = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), redStarMat);
+    starFin.position.set(1.0, 1.8, -3.5);
+    starFin.rotation.y = Math.PI / 2;
+    group.add(starFin);
 
-    // 6. Armament: 30mm GSh-30-1 Autocannon in Right Wing Root
-    const gunPort = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.6, 8), nozzleMat);
-    gunPort.rotateX(Math.PI / 2);
-    gunPort.position.set(0.65, 0.32, 1.8);
-    group.add(gunPort);
+    // 7. Horizontal Stabilizers
+    const stabShape = new THREE.Shape();
+    stabShape.moveTo(0, 0);
+    stabShape.lineTo(2.2, -1.2);
+    stabShape.lineTo(1.8, -1.9);
+    stabShape.lineTo(0, -1.9);
+    stabShape.closePath();
 
-    group.userData.gunMuzzles = [new THREE.Vector3(0.65, 0.32, 2.1)];
-    group.userData.afterburners = afterburners;
-    group.userData.cockpitPos = new THREE.Vector3(0, 0.74, 1.2);
-    group.userData.chaseOffset = new THREE.Vector3(0, 3.1, -9.8);
-    group.userData.isJet = true;
+    const stabGeo = new THREE.ExtrudeGeometry(stabShape, { depth: 0.06 });
+    stabGeo.translate(0, 0, -0.03);
+    stabGeo.rotateX(Math.PI / 2);
 
-    if (isAce) {
-      group.scale.set(1.15, 1.15, 1.15);
-    }
+    const lStab = new THREE.Mesh(stabGeo, darkCamoMat);
+    lStab.position.set(0.9, -0.15, -4.0);
+    group.add(lStab);
+
+    const rStabGeo = stabGeo.clone();
+    rStabGeo.scale(-1, 1, 1);
+    const rStab = new THREE.Mesh(rStabGeo, darkCamoMat);
+    rStab.position.set(-0.9, -0.15, -4.0);
+    group.add(rStab);
+
+    // 8. Twin Exhaust Nozzles with Afterburners
+    const nozzleGeo = new THREE.CylinderGeometry(0.42, 0.46, 0.8, 12, 1, true);
+    nozzleGeo.rotateX(Math.PI / 2);
+
+    const lNoz = new THREE.Mesh(nozzleGeo, metalMat);
+    lNoz.position.set(0.9, -0.32, -4.2);
+    group.add(lNoz);
+
+    const rNoz = lNoz.clone();
+    rNoz.position.x = -0.9;
+    group.add(rNoz);
+
+    const abConeGeo = new THREE.ConeGeometry(0.32, 1.8, 8);
+    abConeGeo.rotateX(-Math.PI / 2);
+
+    const lAB = new THREE.Mesh(abConeGeo, abFlameMat);
+    lAB.position.set(0.9, -0.32, -5.0);
+    group.add(lAB);
+
+    const rAB = lAB.clone();
+    rAB.position.x = -0.9;
+    group.add(rAB);
+
+    group.userData.gunMuzzles = [
+      new THREE.Vector3(0.3, 0.2, 4.2),
+      new THREE.Vector3(-0.3, 0.2, 4.2)
+    ];
+    group.userData.afterburners = [lAB, rAB];
 
     return group;
   },
 
-  // --- 6. MODERN BALTIC PATROL CORVETTE / FRIGATE (SURFACE TARGET) ---
-  createModernCorvette() {
+  // =========================================================================
+  // 6. MODERN STEALTH MISSILE CORVETTE (BALTIC NAVAL WARSHIP FOR POLAND MAP)
+  // Angular radar-deflecting stealth hull, 76mm Oto Melara turret, helipad
+  // =========================================================================
+  createModernWarship() {
     const group = new THREE.Group();
-    group.name = 'BalticCorvette';
 
     const hullMat = new THREE.MeshStandardMaterial({
-      color: '#475569', // Modern naval haze grey
-      roughness: 0.5,
-      metalness: 0.4
+      color: 0x475569, // Modern naval haze grey
+      roughness: 0.4,
+      metalness: 0.35
     });
-    const darkDeckMat = new THREE.MeshStandardMaterial({
-      color: '#1e293b',
-      roughness: 0.7,
-      metalness: 0.2
+    const deckMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.6
     });
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: '#0284c7',
-      roughness: 0.2,
-      metalness: 0.8
+    const darkMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.3,
+      metalness: 0.7
     });
 
-    // 1. Sleek Stealth-Sloped Hull
-    const hullGeo = new THREE.BoxGeometry(7.2, 3.4, 38);
+    // 1. Angular Stealth Hull (tumblehome / faceted bow)
+    const hullGeo = new THREE.BoxGeometry(11, 7, 72);
+    hullGeo.scale(1.0, 1.0, 1.0);
     const hull = new THREE.Mesh(hullGeo, hullMat);
-    hull.position.y = 1.7;
+    hull.position.y = 2.5;
     group.add(hull);
 
-    // Raked Bow
-    const bowGeo = new THREE.ConeGeometry(3.6, 12, 4);
-    bowGeo.rotateX(-Math.PI / 2);
-    bowGeo.rotateY(Math.PI / 4);
+    // Wedge bow
+    const bowGeo = new THREE.ConeGeometry(5.5, 22, 4);
+    bowGeo.rotateX(Math.PI / 2);
+    bowGeo.rotateZ(Math.PI / 4);
+    bowGeo.scale(1.0, 0.6, 1.0);
     const bow = new THREE.Mesh(bowGeo, hullMat);
-    bow.position.set(0, 1.7, 24);
-    bow.scale.set(1.0, 0.5, 1.0);
+    bow.position.set(0, 2.5, 42);
     group.add(bow);
 
     // 2. Angled Stealth Superstructure & Bridge
-    const superGeo = new THREE.BoxGeometry(5.6, 3.8, 14);
+    const superGeo = new THREE.BoxGeometry(9, 6.5, 28);
     const superstructure = new THREE.Mesh(superGeo, hullMat);
-    superstructure.position.set(0, 5.2, 2);
+    superstructure.position.set(0, 7.5, 6);
     group.add(superstructure);
 
-    // Bridge Windows
-    const bridgeGeo = new THREE.BoxGeometry(5.4, 0.9, 2.5);
-    const bridge = new THREE.Mesh(bridgeGeo, glassMat);
-    bridge.position.set(0, 6.2, 8);
+    // Bridge Windows (dark angled glass strip)
+    const bridgeGeo = new THREE.BoxGeometry(8.2, 1.2, 6);
+    const bridge = new THREE.Mesh(bridgeGeo, darkMat);
+    bridge.position.set(0, 9.5, 17);
     group.add(bridge);
 
-    // 3. Integrated Stealth Sensor Mast (3D Air Surveillance Radar)
-    const mastGeo = new THREE.ConeGeometry(1.8, 6.5, 4);
+    // Integrated Stealth Enclosed Sensor Mast
+    const mastGeo = new THREE.ConeGeometry(2.4, 9, 4);
     mastGeo.rotateY(Math.PI / 4);
-    const mast = new THREE.Mesh(mastGeo, darkDeckMat);
-    mast.position.set(0, 10.2, 1);
+    const mast = new THREE.Mesh(mastGeo, darkMat);
+    mast.position.set(0, 14.5, 4);
     group.add(mast);
 
-    // Rotating Radar Dish on top
-    const dish = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.3), darkDeckMat);
-    dish.position.set(0, 13.6, 1);
-    group.add(dish);
+    // 3. 76mm Stealth Gun Turret (Forward bow)
+    const turretGroup = new THREE.Group();
+    turretGroup.position.set(0, 6.5, 26);
 
-    // 4. Oto Melara 76mm Stealth Rapid-Fire Naval Gun Turret on Bow
-    const turretGeo = new THREE.ConeGeometry(1.8, 1.6, 6);
-    const turret = new THREE.Mesh(turretGeo, darkDeckMat);
-    turret.position.set(0, 4.2, 16);
-    group.add(turret);
+    const cupolaGeo = new THREE.ConeGeometry(2.2, 2.2, 6);
+    cupolaGeo.rotateY(Math.PI / 6);
+    turretGroup.add(new THREE.Mesh(cupolaGeo, darkMat));
 
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 8), darkDeckMat);
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 5.5, 8),
+      darkMat
+    );
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 4.4, 18);
-    group.add(barrel);
+    barrel.position.set(0, 0.4, 3.2);
+    turretGroup.add(barrel);
+    group.add(turretGroup);
 
-    // 5. Aft Flight Deck / Helipad with 'H' marking
-    const padGeo = new THREE.BoxGeometry(6.6, 0.2, 11);
-    const pad = new THREE.Mesh(padGeo, darkDeckMat);
-    pad.position.set(0, 3.45, -12);
-    group.add(pad);
+    // 4. Helipad on stern with Polish Szachownica / 'H' marker
+    const helipad = new THREE.Mesh(
+      new THREE.BoxGeometry(9.6, 0.2, 18),
+      deckMat
+    );
+    helipad.position.set(0, 6.1, -22);
+    group.add(helipad);
+
+    const flagPlane = new THREE.PlaneGeometry(5.5, 5.5);
+    flagPlane.rotateX(-Math.PI / 2);
+    const helipadMarking = new THREE.Mesh(
+      flagPlane,
+      new THREE.MeshBasicMaterial({
+        map: this.createPolishChessboardTexture(),
+        transparent: true
+      })
+    );
+    helipadMarking.position.set(0, 6.22, -22);
+    group.add(helipadMarking);
 
     return group;
   }

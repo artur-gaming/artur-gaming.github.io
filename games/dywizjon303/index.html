@@ -49,6 +49,10 @@
           <span class="title">💣 BOMBY [B]</span>
           <span class="val" id="bombs-val" style="color: #fb923c;">4/4</span>
         </div>
+        <div class="status-pill" id="missiles-pill" style="display: none; border-color: rgba(239, 68, 68, 0.4);">
+          <span class="title">🚀 RAKIETY [F/R]</span>
+          <span class="val" id="missiles-val" style="color: #f87171;">4/4</span>
+        </div>
         <div class="status-pill clickable-pill" id="open-upgrades-pill" title="Otwórz Warsztat Ulepszeń (Klawisz U)">
           <span class="title" style="color: #a855f7;">⚙️ ULEPSZENIA [U]</span>
         </div>
@@ -72,6 +76,13 @@
 
       <!-- Hit Marker (czerwony krzyżyk po trafieniu) -->
       <div id="hit-marker"></div>
+
+      <!-- Modern Jet Missile Lock-on Reticle (celownik rakiet) -->
+      <div id="missile-lock-box">
+        <div class="lock-brackets"></div>
+        <div class="lock-label">TRACKING</div>
+        <div class="lock-dist" id="lock-dist-text">--m</div>
+      </div>
 
       <!-- Kill Announcement Banner -->
       <div id="kill-announcement">MESSERSCHMITT W PŁOMIENIACH!</div>
@@ -126,14 +137,12 @@
 
       <!-- Controls Hint -->
       <div id="controls-hint">
-        <div><kbd>1</kbd> Spitfire Mk VB • <kbd>2</kbd> Boeing B-17G • <kbd>3</kbd> Boeing B-29</div>
+        <div><kbd>1</kbd> Spitfire • <kbd>2</kbd> B-17 • <kbd>3</kbd> B-29 • <kbd>4</kbd> F-16 • <kbd>5</kbd> F-18 • <kbd>6</kbd> F-22 • <kbd>7</kbd> F-35</div>
+        <div><kbd>F</kbd> / <kbd>R</kbd> 🚀 Rakiety samonaprowadzające AIM-9 / AIM-120 (F-16, F-18, F-22, F-35)</div>
         <div><kbd>B</kbd> Zrzut bomby (B-29: ☢️ Bomba Atomowa!) • <kbd>U</kbd> Warsztat Ulepszeń</div>
         <div><kbd>Myszka</kbd> lub <kbd>W</kbd><kbd>S</kbd><kbd>A</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> Lot</div>
-        <div><kbd>LPM</kbd> / <kbd>Spacja</kbd> Ogień z działek</div>
-        <div><kbd>Shift</kbd> / <kbd>Ctrl</kbd> Ciąg / Dopalacz</div>
-        <div><kbd>Q</kbd> / <kbd>E</kbd> Dodatkowy przechył (beczka)</div>
-        <div><kbd>C</kbd> Widok z Kokpitu / Zza samolotu</div>
-        <div><kbd>M</kbd> Wł. / Wył. sterowanie myszką</div>
+        <div><kbd>LPM</kbd> / <kbd>Spacja</kbd> Działka • <kbd>Shift</kbd> / <kbd>Ctrl</kbd> Ciąg / Dopalacz</div>
+        <div><kbd>Q</kbd> / <kbd>E</kbd> Beczka • <kbd>C</kbd> Widok Kokpit / Samolot • <kbd>M</kbd> Wł./Wył. mysz</div>
         <div><kbd>T</kbd> Powrót do menu • <kbd>P</kbd> / <kbd>Esc</kbd> Pauza</div>
       </div>
     </div>
@@ -141,15 +150,15 @@
     <!-- START / MAIN MENU SCREEN -->
     <div id="start-screen" class="modal-screen">
       <div class="title-box">
-        <div class="sub-badge">II Wojna Światowa 1940-1945 • Europa & Pacyfik</div>
+        <div class="sub-badge">Bitwy Lotnicze • Europa 1940 • Pacyfik 1945 • Polska 2026</div>
         <h1 class="main-title">SKRZYDŁA CHWAŁY 3D</h1>
         <p class="main-desc">
-          Wybierz teatr wojenny oraz swój samolot: zwinnego <strong>Spitfire'a</strong>, legendarną <strong>Latającą Fortecę B-17</strong> lub strategiczną <strong>Superfortecę B-29 z Bombą Atomową</strong>!
+          Wybierz teatr wojenny oraz swój samolot: od legendarnych myśliwców II WŚ po ultranowoczesne maszyny bojowe <strong>F-16 Jastrząb</strong>, <strong>F/A-18 Hornet</strong>, <strong>F-22 Raptor</strong> i <strong>F-35 Husarz</strong>!
         </p>
       </div>
 
       <!-- Map Theater Selection Cards -->
-      <div class="selection-section-title">📍 WYBIERZ TEATR WOJENNY (MAPA)</div>
+      <div class="selection-section-title">📍 WYBIERZ TEATR DZIAŁAŃ (MAPA)</div>
       <div class="map-select-row">
         <div class="map-card active" id="select-map-britain" data-map="britain">
           <div class="map-card-header">
@@ -166,21 +175,29 @@
           </div>
           <p>Teatr Pacyfiku: ośnieżona Góra Fudżi, wyspy wulkaniczne, brama Torii, myśliwce Mitsubishi A6M Zero i okręty wojenne IJN.</p>
         </div>
+
+        <div class="map-card" id="select-map-poland" data-map="poland">
+          <div class="map-card-header">
+            <span class="map-tag poland-tag">MAPA 3 • POLSKA 2026</span>
+            <h3>Wybrzeże Bałtyku & Tatry</h3>
+          </div>
+          <p>Operacja Obrony RP: Mierzeja Helska, baza lotnictwa taktycznego, radar wojskowy, wrogie myśliwce bojowe i okręty rakietowe.</p>
+        </div>
       </div>
 
       <!-- Aircraft Selection Cards -->
-      <div class="selection-section-title">✈️ WYBIERZ SAMOLOT BOJOWY (KLAWISZE 1, 2, 3)</div>
+      <div class="selection-section-title">✈️ WYBIERZ SAMOLOT BOJOWY (KLAWISZE 1 - 7)</div>
       <div class="plane-select-row">
         <div class="plane-card active" id="select-spitfire" data-plane="Spitfire">
           <div class="plane-card-header">
             <span class="plane-tag">MYŚLIWIEC (Klawisz 1)</span>
             <h3>Supermarine Spitfire Mk VB</h3>
           </div>
-          <p>Szybki i niezwykle zwrotny myśliwiec przechwytujący Dywizjonu 303 z biało-czerwoną szachownicą.</p>
+          <p>Zwinny myśliwiec przechwytujący Dywizjonu 303 z biało-czerwoną szachownicą.</p>
           <div class="plane-stats">
-            <span>⚡ Prędkość: <strong>Wysoka</strong></span>
+            <span>⚡ Prędkość: <strong>Wysoka (~475 km/h)</strong></span>
             <span>🛡️ Pancerz: <strong>150 HP</strong></span>
-            <span>🔫 Uzbrojenie: <strong>2x 20mm Hispano + 4x KM</strong></span>
+            <span>🔫 Uzbrojenie: <strong>2x 20mm + 4x KM</strong></span>
           </div>
         </div>
 
@@ -189,11 +206,11 @@
             <span class="plane-tag b17-tag">LATAJĄCA FORTECA (Klawisz 2)</span>
             <h3>Boeing B-17G Flying Fortress</h3>
           </div>
-          <p>Ciężki 4-silnikowy bombowiec USAAF. Posiada wieżyczkę podbródkową, grzbietową, kulistą i ogonową!</p>
+          <p>Ciężki 4-silnikowy bombowiec USAAF z automatycznymi wieżyczkami obronnymi AI.</p>
           <div class="plane-stats">
-            <span>⚡ Prędkość: <strong>Średnia</strong></span>
+            <span>⚡ Prędkość: <strong>Średnia (~380 km/h)</strong></span>
             <span>🛡️ Pancerz: <strong>450 HP (Pancerny)</strong></span>
-            <span>🔫 Uzbrojenie: <strong>6x .50 cal + Wieżyczki AI</strong></span>
+            <span>🔫 Uzbrojenie: <strong>6x .50 cal + Wieżyczki</strong></span>
           </div>
         </div>
 
@@ -202,11 +219,67 @@
             <span class="plane-tag b29-tag">SUPERFORTECA (Klawisz 3)</span>
             <h3>Boeing B-29 Superfortress</h3>
           </div>
-          <p>Srebrny kolos USAAF uzbrojony w <strong>Bombę Atomową [B]</strong>, zdalne wieżyczki i tytanowy pancerz!</p>
+          <p>Srebrny strategiczny kolos uzbrojony w <strong>Bombę Atomową [B]</strong> i tytanowy kadłub.</p>
           <div class="plane-stats">
-            <span>⚡ Prędkość: <strong>Wysoka (4x Wright R-3350)</strong></span>
+            <span>⚡ Prędkość: <strong>Wysoka (~425 km/h)</strong></span>
             <span>🛡️ Pancerz: <strong>600 HP (Kolos)</strong></span>
             <span>☢️ Broń: <strong>BOMBA ATOMOWA [B]</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-f16" data-plane="F16">
+          <div class="plane-card-header">
+            <span class="plane-tag f16-tag">MYŚLIWIEC RP (Klawisz 4)</span>
+            <h3>F-16C Block 52+ Jastrząb</h3>
+          </div>
+          <p>Myśliwiec Sił Powietrznych RP z szachownicą. Działko Vulcan M61A1, dopalacz i <strong>rakiety samonaprowadzające [F/R]</strong>.</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Ekstremalna (~600 km/h)</strong></span>
+            <span>🛡️ Pancerz: <strong>300 HP</strong></span>
+            <span>🚀 Rakiety: <strong>AIM-9X Sidewinder (Samonaprowadzanie)</strong></span>
+            <span>🔫 Działko: <strong>M61A1 Vulcan 20mm</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-f18" data-plane="F18">
+          <div class="plane-card-header">
+            <span class="plane-tag f18-tag">WIELOZADANIOWY (Klawisz 5)</span>
+            <h3>Boeing F/A-18 Hornet</h3>
+          </div>
+          <p>Dwusilnikowy myśliwiec z podwójnymi skośnymi statecznikami, ciężkim ładunkiem bomb i <strong>rakietami samonaprowadzającymi [F/R]</strong>.</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Bardzo Wysoka (~580 km/h)</strong></span>
+            <span>🛡️ Pancerz: <strong>340 HP</strong></span>
+            <span>🚀 Rakiety: <strong>AIM-120 AMRAAM + AIM-9</strong></span>
+            <span>🔫 Uzbrojenie: <strong>M61A2 20mm + 8 Bomb</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-f22" data-plane="F22">
+          <div class="plane-card-header">
+            <span class="plane-tag f22-tag">STEALTH 5. GEN (Klawisz 6)</span>
+            <h3>Lockheed Martin F-22 Raptor</h3>
+          </div>
+          <p>Myśliwiec dominacji powietrznej 5. gen. Powłoka stealth RAM, supercruise, wektorowanie 2D i <strong>rakiety samonaprowadzające [F/R]</strong>!</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Naddźwiękowa (~700 km/h)</strong></span>
+            <span>🛡️ Pancerz: <strong>440 HP (Stealth)</strong></span>
+            <span>🚀 Rakiety: <strong>AIM-120D AMRAAM (Zabójcze Homing)</strong></span>
+            <span>🔫 Uzbrojenie: <strong>M61A2 + Wektorowanie 2D</strong></span>
+          </div>
+        </div>
+
+        <div class="plane-card" id="select-f35" data-plane="F35">
+          <div class="plane-card-header">
+            <span class="plane-tag f35-tag">HUSARZ 5. GEN RP (Klawisz 7)</span>
+            <h3>Lockheed Martin F-35A Husarz</h3>
+          </div>
+          <p>Najnowocześniejszy myśliwiec Sił Powietrznych RP z szachownicą, wlotami DSI, radarem AESA i <strong>rakietami samonaprowadzającymi [F/R]</strong>.</p>
+          <div class="plane-stats">
+            <span>⚡ Prędkość: <strong>Wysoka (~630 km/h)</strong></span>
+            <span>🛡️ Pancerz: <strong>400 HP (Stealth V Gen)</strong></span>
+            <span>🚀 Rakiety: <strong>AIM-120C + AIM-9X (Autolock)</strong></span>
+            <span>🔫 Uzbrojenie: <strong>GAU-22/A 25mm Equalizer</strong></span>
           </div>
         </div>
       </div>

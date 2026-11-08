@@ -17,10 +17,14 @@ class GameUI {
     this.waveVal = document.getElementById('wave-val');
     this.killsVal = document.getElementById('kills-val');
     this.bombsVal = document.getElementById('bombs-val');
+    this.missilesVal = document.getElementById('missiles-val');
     this.theaterVal = document.getElementById('theater-val');
 
     this.hitMarker = document.getElementById('hit-marker');
     this.leadReticle = document.getElementById('lead-reticle');
+    this.missileLockBox = document.getElementById('missile-lock-box');
+    this.lockLabel = this.missileLockBox ? this.missileLockBox.querySelector('.lock-label') : null;
+    this.lockDistText = document.getElementById('lock-dist-text');
     this.killAnnouncement = document.getElementById('kill-announcement');
     this.damageFlash = document.getElementById('damage-flash');
     this.missionBanner = document.getElementById('mission-banner');
@@ -63,7 +67,7 @@ class GameUI {
     this.missionBanner.style.animation = 'fadeInOut 4s forwards';
   }
 
-  update(player, controls, enemies, bombers, camera, score, wave, kills, gunHeat, bombsText = '', ships = [], theaterText = '') {
+  update(player, controls, enemies, bombers, camera, score, wave, kills, gunHeat, bombsText = '', ships = [], theaterText = '', lockedTarget = null, isLocked = false, missilesText = '') {
     if (!player || !player.mesh) return;
 
     // 1. Airspeed & Altitude Gauges
@@ -91,6 +95,7 @@ class GameUI {
     if (this.waveVal) this.waveVal.textContent = wave;
     if (this.killsVal) this.killsVal.textContent = kills;
     if (this.bombsVal && bombsText) this.bombsVal.textContent = bombsText;
+    if (this.missilesVal && missilesText) this.missilesVal.textContent = missilesText;
     if (this.theaterVal && theaterText) this.theaterVal.textContent = theaterText;
 
     // 4. Update Radar Minimap
@@ -98,6 +103,9 @@ class GameUI {
 
     // 5. Update Target Lead Indicator
     this.updateLeadIndicator(player, enemies, camera);
+
+    // 6. Update Modern Jet Missile Lock-on Reticle
+    this.updateMissileLock(player, lockedTarget, camera, isLocked);
   }
 
   renderRadar(player, enemies, bombers, ships = []) {
@@ -241,6 +249,42 @@ class GameUI {
       this.leadReticle.style.top = sy + 'px';
     } else {
       this.leadReticle.style.display = 'none';
+    }
+  }
+
+  updateMissileLock(player, target, camera, isLocked) {
+    if (!this.missileLockBox) return;
+
+    if (!target || target.isDead || !target.mesh) {
+      this.missileLockBox.style.display = 'none';
+      return;
+    }
+
+    const targetPos = target.mesh.position.clone();
+    const screenPos = targetPos.project(camera);
+
+    if (screenPos.z < 1.0 && screenPos.z > -1.0) {
+      const halfW = window.innerWidth / 2;
+      const halfH = window.innerHeight / 2;
+      const sx = (screenPos.x * halfW) + halfW;
+      const sy = -(screenPos.y * halfH) + halfH;
+
+      this.missileLockBox.style.display = 'block';
+      this.missileLockBox.style.left = sx + 'px';
+      this.missileLockBox.style.top = sy + 'px';
+
+      const dist = Math.round(player.mesh.position.distanceTo(target.mesh.position));
+      if (this.lockDistText) this.lockDistText.textContent = dist + 'm';
+
+      if (isLocked) {
+        this.missileLockBox.classList.add('locked');
+        if (this.lockLabel) this.lockLabel.textContent = 'LOCK';
+      } else {
+        this.missileLockBox.classList.remove('locked');
+        if (this.lockLabel) this.lockLabel.textContent = 'TRACKING';
+      }
+    } else {
+      this.missileLockBox.style.display = 'none';
     }
   }
 }

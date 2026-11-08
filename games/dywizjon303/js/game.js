@@ -22,6 +22,16 @@ class AirCombatGame {
     this.nukeShakeTimer = 0;
     this.nukeShakeIntensity = 0;
     this.maxUpgradeLevel = 5;
+
+    // Guided Missiles (F-16, F-18, F-22, F-35)
+    this.missilesAmmo = 0;
+    this.maxMissiles = 0;
+    this.missileReloadTimer = 0;
+    this.lockedTarget = null;
+    this.isMissileLocked = false;
+    this.lockTimer = 0;
+    this.missileWingSide = 1;
+
     this.upgrades = {
       damage: 1,
       cooling: 1,
@@ -121,29 +131,35 @@ class AirCombatGame {
       });
     }
 
-    // Map selection (Britain vs Japan)
-    const mapBritain = document.getElementById('select-map-britain');
-    const mapJapan = document.getElementById('select-map-japan');
-    if (mapBritain && mapJapan) {
-      mapBritain.addEventListener('click', () => {
-        this.selectedMap = 'britain';
-        mapBritain.classList.add('active');
-        mapJapan.classList.remove('active');
-        this.world.loadMap('britain');
-      });
-      mapJapan.addEventListener('click', () => {
-        this.selectedMap = 'japan';
-        mapJapan.classList.add('active');
-        mapBritain.classList.remove('active');
-        this.world.loadMap('japan');
-      });
-    }
+    // Map selection (Britain, Japan, Poland)
+    const mapCards = [
+      { id: 'select-map-britain', map: 'britain' },
+      { id: 'select-map-japan', map: 'japan' },
+      { id: 'select-map-poland', map: 'poland' }
+    ];
+    mapCards.forEach(item => {
+      const el = document.getElementById(item.id);
+      if (el) {
+        el.addEventListener('click', () => {
+          this.selectedMap = item.map;
+          mapCards.forEach(m => {
+            const mEl = document.getElementById(m.id);
+            if (mEl) mEl.classList.toggle('active', m.map === item.map);
+          });
+          this.world.loadMap(item.map);
+        });
+      }
+    });
 
-    // Aircraft selection (Spitfire, B-17, B-29)
+    // Aircraft selection (Spitfire, B-17, B-29, F-16, F-18, F-22, F-35)
     const planeCards = [
       { id: 'select-spitfire', type: 'Spitfire' },
       { id: 'select-b17', type: 'B17' },
-      { id: 'select-b29', type: 'B29' }
+      { id: 'select-b29', type: 'B29' },
+      { id: 'select-f16', type: 'F16' },
+      { id: 'select-f18', type: 'F18' },
+      { id: 'select-f22', type: 'F22' },
+      { id: 'select-f35', type: 'F35' }
     ];
     planeCards.forEach(item => {
       const el = document.getElementById(item.id);
@@ -226,8 +242,18 @@ class AirCombatGame {
           this.switchPlayerAircraft('B17');
         } else if (e.code === 'Digit3') {
           this.switchPlayerAircraft('B29');
+        } else if (e.code === 'Digit4') {
+          this.switchPlayerAircraft('F16');
+        } else if (e.code === 'Digit5') {
+          this.switchPlayerAircraft('F18');
+        } else if (e.code === 'Digit6') {
+          this.switchPlayerAircraft('F22');
+        } else if (e.code === 'Digit7') {
+          this.switchPlayerAircraft('F35');
         } else if (e.code === 'KeyB') {
           this.dropBomb();
+        } else if (e.code === 'KeyF' || e.code === 'KeyR') {
+          this.fireMissile();
         }
       }
     });
@@ -325,12 +351,12 @@ class AirCombatGame {
       this.player.health = this.player.maxHealth; // Full hull repair!
     } else if (key === 'engine' && this.controls && this.player) {
       const spec = this.createPlayerMeshAndStats(this.player.type);
-      const engineBoost = 1 + (this.upgrades.engine - 1) * 0.08; // Max +32% at Level 5 (~625 km/h max)
-      this.controls.maxSpeed = Math.min(175, spec.maxSpeed * engineBoost);
+      const engineBoost = 1 + (this.upgrades.engine - 1) * 0.08;
+      this.controls.maxSpeed = Math.min(235, spec.maxSpeed * engineBoost);
       this.controls.turnMultiplier = 1 + (this.upgrades.engine - 1) * 0.08;
     } else if (key === 'bombs') {
-      const baseCount = this.selectedPlaneType === 'B29' ? 2 : (this.selectedPlaneType === 'B17' ? 8 : 4);
-      this.maxBombs = baseCount + (this.upgrades.bombs - 1) * (this.selectedPlaneType === 'B29' ? 1 : 2);
+      const spec = this.createPlayerMeshAndStats(this.player.type);
+      this.maxBombs = spec.baseBombs + (this.upgrades.bombs - 1) * (this.selectedPlaneType === 'B29' ? 1 : 2);
       this.bombsAmmo = this.maxBombs;
     }
 
@@ -373,8 +399,128 @@ class AirCombatGame {
     }
   }
 
+  fireMissile() {
+    if (!this.player || !this.player.mesh || this.state !== 'PLAYING') return;
+
+    const isJet = ['F16', 'F18', 'F22', 'F35'].includes(this.player.type);
+    if (!isJet) {
+      this.ui.showKillAnnouncement('⚠️ RAKIETY SAMONAPROWADZAJĄCE DOSTĘPNE W: F-16, F-18, F-22, F-35!');
+      return;
+    }
+
+    if (this.missilesAmmo <= 0) {
+      this.ui.showKillAnnouncement('⏳ PRZEŁADOWANIE RAKIET... ZACZEKAJ!');
+      return;
+    }
+
+    this.missilesAmmo--;
+    window.soundSystem.playMissileLaunch();
+
+    // Alternate left and right wing launcher pylon
+    const wingOffset = this.missileWingSide * (this.player.type === 'F18' ? 4.8 : (this.player.type === 'F22' ? 3.8 : 4.4));
+    this.missileWingSide = -this.missileWingSide;
+
+    const launchLocal = new THREE.Vector3(wingOffset, -0.2, 0.6);
+    const launchPos = launchLocal.applyMatrix4(this.player.mesh.matrixWorld);
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
+    const currentSpeed = (this.controls && this.controls.currentSpeed) ? this.controls.currentSpeed : 100;
+
+    let target = this.lockedTarget;
+    if (!target || target.isDead) {
+      target = this.findMissileTarget();
+    }
+
+    this.particles.spawnMissile(launchPos, forward, target, true, currentSpeed + 85);
+
+    const msg = (target && !target.isDead)
+      ? (this.isMissileLocked ? '🚀 ODPALONO RAKIETĘ SAMONAPROWADZAJĄCĄ [LOCK]!' : '🚀 ODPALONO RAKIETĘ AIM-9 / AIM-120 (ŚLEDZENIE)!')
+      : '🚀 ODPALONO RAKIETĘ (SZUKANIE CELU...)!';
+    this.ui.showKillAnnouncement(msg);
+  }
+
+  findMissileTarget() {
+    if (!this.player || !this.player.mesh) return null;
+    const playerPos = this.player.mesh.position;
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
+
+    let best = null;
+    let minAngle = 0.65; // ~37 degrees cone
+
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (e.isDead || !e.mesh) continue;
+
+      const toEnemy = new THREE.Vector3().subVectors(e.mesh.position, playerPos);
+      const dist = toEnemy.length();
+      if (dist > 1300 || dist < 20) continue;
+
+      const angle = forward.angleTo(toEnemy.normalize());
+      if (angle < minAngle) {
+        minAngle = angle;
+        best = e;
+      }
+    }
+    return best;
+  }
+
   createPlayerMeshAndStats(type) {
     const armorBonus = (this.upgrades.armor - 1) * 60;
+    if (type === 'F35') {
+      return {
+        mesh: PlaneModels.createF35(),
+        type: 'F35',
+        maxHealth: 400 + armorBonus,
+        baseSpeed: 104,
+        maxSpeed: 175,
+        minSpeed: 44,
+        baseBombs: 8,
+        baseMissiles: 6,
+        hudTitle: 'STAN F-35A HUSARZ RP (KADŁUB V GEN STEALTH)',
+        gunTitle: 'DZIAŁKO GAU-22/A 25MM EQUALIZER (RADAR AESA APG-81)'
+      };
+    }
+    if (type === 'F22') {
+      return {
+        mesh: PlaneModels.createF22(),
+        type: 'F22',
+        maxHealth: 440 + armorBonus,
+        baseSpeed: 118,
+        maxSpeed: 198,
+        minSpeed: 48,
+        baseBombs: 6,
+        baseMissiles: 6,
+        hudTitle: 'STAN F-22 RAPTOR (POWŁOKA RAM STEALTH 5. GEN)',
+        gunTitle: 'DZIAŁKO M61A2 VULCAN 20MM (WEKTOROWANIE CIĄGU 2D)'
+      };
+    }
+    if (type === 'F18') {
+      return {
+        mesh: PlaneModels.createF18(),
+        type: 'F18',
+        maxHealth: 340 + armorBonus,
+        baseSpeed: 94,
+        maxSpeed: 162,
+        minSpeed: 42,
+        baseBombs: 8,
+        baseMissiles: 6,
+        hudTitle: 'STAN BOEING F/A-18 HORNET (KADŁUB)',
+        gunTitle: 'DZIAŁKO M61A2 VULCAN 20MM (TWIN TURBOFAN)'
+      };
+    }
+    if (type === 'F16') {
+      return {
+        mesh: PlaneModels.createF16(),
+        type: 'F16',
+        maxHealth: 300 + armorBonus,
+        baseSpeed: 98,
+        maxSpeed: 168,
+        minSpeed: 44,
+        baseBombs: 6,
+        baseMissiles: 4,
+        hudTitle: 'STAN F-16C BLOCK 52+ JASTRZĄB (SIŁY POWIETRZNE RP)',
+        gunTitle: 'DZIAŁKO OBROTOWE M61A1 VULCAN 20MM (6000 STRZ/MIN)'
+      };
+    }
     if (type === 'B29') {
       return {
         mesh: PlaneModels.createB29(),
@@ -384,6 +530,7 @@ class AirCombatGame {
         maxSpeed: 118,
         minSpeed: 36,
         baseBombs: 2,
+        baseMissiles: 0,
         hudTitle: 'STAN BOEING B-29 SUPERFORTRESS (KADŁUB)',
         gunTitle: 'SYSTEM KIEROWANIA OGNIEM GE (10x .50 CAL BROWNING + 20MM)'
       };
@@ -397,6 +544,7 @@ class AirCombatGame {
         maxSpeed: 105,
         minSpeed: 34,
         baseBombs: 8,
+        baseMissiles: 0,
         hudTitle: 'STAN B-17 FLYING FORTRESS (KADŁUB)',
         gunTitle: 'TEMPERATURA 6x KM .50 CAL BROWNING (+ WIEŻYCZKI AI)'
       };
@@ -409,6 +557,7 @@ class AirCombatGame {
       maxSpeed: 132,
       minSpeed: 38,
       baseBombs: 4,
+      baseMissiles: 0,
       hudTitle: 'STAN SPITFIRE MK VB (KADŁUB)',
       gunTitle: 'TEMPERATURA DZIAŁEK (2x 20MM HISPANO + 4x BROWNING)'
     };
@@ -437,23 +586,41 @@ class AirCombatGame {
 
     const engineBoost = 1 + (this.upgrades.engine - 1) * 0.08;
     this.controls.baseSpeed = spec.baseSpeed;
-    this.controls.maxSpeed = Math.min(175, spec.maxSpeed * engineBoost);
+    this.controls.maxSpeed = Math.min(235, spec.maxSpeed * engineBoost);
     this.controls.minSpeed = spec.minSpeed;
     this.controls.turnMultiplier = engineBoost;
 
     this.maxBombs = spec.baseBombs + (this.upgrades.bombs - 1) * (type === 'B29' ? 1 : 2);
     this.bombsAmmo = Math.min(this.maxBombs, Math.max(this.bombsAmmo, 1));
 
+    // Missile setup for modern jets
+    const isJet = ['F16', 'F18', 'F22', 'F35'].includes(type);
+    this.maxMissiles = spec.baseMissiles || (isJet ? 4 : 0);
+    this.missilesAmmo = this.maxMissiles;
+    this.missileReloadTimer = 0;
+    this.lockedTarget = null;
+    this.isMissileLocked = false;
+    this.lockTimer = 0;
+
+    const missilePill = document.getElementById('missiles-pill');
+    if (missilePill) missilePill.style.display = isJet ? 'flex' : 'none';
+
     const planeLabel = document.getElementById('plane-name-label');
     const gunLabel = document.getElementById('gun-name-label');
     if (planeLabel) planeLabel.textContent = spec.hudTitle;
     if (gunLabel) gunLabel.textContent = spec.gunTitle;
 
-    const announceText = type === 'B29'
-      ? '✈️ BOEING B-29 SUPERFORTRESS (BROŃ ATOMOWA)!'
-      : (type === 'B17' ? '✈️ BOEING B-17G FLYING FORTRESS!' : '✈️ SUPERMARINE SPITFIRE MK VB!');
+    let announceText = '✈️ SUPERMARINE SPITFIRE MK VB!';
+    if (type === 'F35') announceText = '✈️ LOCKHEED F-35A HUSARZ (SIŁY POWIETRZNE RP)!';
+    else if (type === 'F22') announceText = '✈️ LOCKHEED F-22 RAPTOR (DOMINACJA POWIETRZNA 5. GEN)!';
+    else if (type === 'F18') announceText = '✈️ BOEING F/A-18 HORNET (MYŚLIWIEC WIELOZADANIOWY)!';
+    else if (type === 'F16') announceText = '✈️ F-16C BLOCK 52+ JASTRZĄB (SIŁY POWIETRZNE RP)!';
+    else if (type === 'B29') announceText = '✈️ BOEING B-29 SUPERFORTRESS (BROŃ ATOMOWA)!';
+    else if (type === 'B17') announceText = '✈️ BOEING B-17G FLYING FORTRESS!';
+
     this.ui.showKillAnnouncement(announceText);
     window.soundSystem.playRadioChatter();
+    this.updateCamera(1.0);
   }
 
   startGame() {
@@ -496,6 +663,17 @@ class AirCombatGame {
     this.bombsAmmo = this.maxBombs;
     this.bombReloadTimer = 0;
 
+    const isJet = ['F16', 'F18', 'F22', 'F35'].includes(this.selectedPlaneType);
+    this.maxMissiles = spec.baseMissiles || (isJet ? 4 : 0);
+    this.missilesAmmo = this.maxMissiles;
+    this.missileReloadTimer = 0;
+    this.lockedTarget = null;
+    this.isMissileLocked = false;
+    this.lockTimer = 0;
+
+    const missilePill = document.getElementById('missiles-pill');
+    if (missilePill) missilePill.style.display = isJet ? 'flex' : 'none';
+
     const planeLabel = document.getElementById('plane-name-label');
     const gunLabel = document.getElementById('gun-name-label');
     if (planeLabel) planeLabel.textContent = spec.hudTitle;
@@ -513,10 +691,12 @@ class AirCombatGame {
     this.startWave(this.wave);
 
     this.state = 'PLAYING';
+    this.updateCamera(1.0);
     window.soundSystem.playRadioChatter();
   }
 
   spawnBomberFormation() {
+    const isPoland = this.selectedMap === 'poland';
     const formationOffsets = [
       new THREE.Vector3(0, 480, 250),
       new THREE.Vector3(-120, 510, 120),
@@ -524,18 +704,29 @@ class AirCombatGame {
     ];
 
     formationOffsets.forEach(pos => {
-      const bMesh = PlaneModels.createHeavyBomber();
+      const bMesh = isPoland ? PlaneModels.createF16() : PlaneModels.createHeavyBomber();
       bMesh.position.copy(pos);
       this.scene.add(bMesh);
-      const bomber = new PlaneEntity(bMesh, 'Bomber', false);
+      const bomber = new PlaneEntity(bMesh, isPoland ? 'Ally' : 'Bomber', false);
+      if (isPoland) {
+        bomber.speed = 82;
+        bomber.maxHealth = 450;
+        bomber.health = 450;
+      }
       this.bombers.push(bomber);
     });
   }
 
   startWave(waveNum) {
     this.wave = waveNum;
+    const isPoland = this.selectedMap === 'poland';
     const isJapan = this.selectedMap === 'japan';
-    const waveTitles = isJapan ? [
+    const waveTitles = isPoland ? [
+      "FALA 1: PATROL GRANICZNY RP - WROGI ROZPOZNAWCZY KLUCZ BOJOWY",
+      "FALA 2: ZAGROŻENIE NAD BAŁTYKIEM - WROGA ESKADRA PRZECHWYTUJĄCA",
+      "FALA 3: ZMASOWANE UDERZENIE NAD POLSKIM WYBRZEŻEM",
+      "FALA 4: POJEDYNEK Z ASAMI WROGIEGO LOTNICTWA BOJOWEGO!"
+    ] : (isJapan ? [
       "FALA 1: PATROL LOTNICTWA CESARSKIEGO - MYŚLIWCE ZERO (A6M)",
       "FALA 2: ZESPÓŁ UDERZENIOWY ZERO & KAMIKAZE NAD PACYFIKIEM",
       "FALA 3: NALOT NAD WYSPAMI JAPOŃSKIMI - WIDOK NA GÓRĘ FUDŻI",
@@ -545,11 +736,11 @@ class AirCombatGame {
       "FALA 2: ATAK SZTUKASÓW (JU 87) - BROŃ BOMBOWCÓW!",
       "FALA 3: ZMASOWANE UDERZENIE ESKADRY MESSERSCHMITTÓW",
       "FALA 4: POJEDYNEK Z ASEM LUFTWAFFE!"
-    ];
+    ]);
 
     const title = waveNum <= waveTitles.length
       ? waveTitles[waveNum - 1]
-      : (isJapan ? `FALA ${waveNum}: TOTALNY NALOT NAD JAPONIĄ!` : `FALA ${waveNum}: NALOT TOTALNY!`);
+      : (isPoland ? `FALA ${waveNum}: TOTALNA BITWA O POLSKĄ PRZESTRZEŃ POWIETRZNĄ!` : (isJapan ? `FALA ${waveNum}: TOTALNY NALOT NAD JAPONIĄ!` : `FALA ${waveNum}: NALOT TOTALNY!`));
     this.ui.showMissionBanner(title);
 
     // Spawn configuration based on wave
@@ -559,7 +750,30 @@ class AirCombatGame {
     // Spawn warships on the water as bombing targets
     this.spawnWarships(playerPos);
 
-    if (isJapan) {
+    if (isPoland) {
+      if (waveNum === 1) {
+        // 4x Hostile Modern Jet
+        for (let i = 0; i < 4; i++) {
+          this.spawnEnemy('HostileJet', playerPos, spawnDist, i * 160);
+        }
+      } else if (waveNum === 2) {
+        // 5x Hostile Jet
+        for (let i = 0; i < 5; i++) {
+          this.spawnEnemy('HostileJet', playerPos, spawnDist, (i - 2) * 190, 580);
+        }
+      } else if (waveNum === 3) {
+        // 7x Hostile Jet swarm
+        for (let i = 0; i < 7; i++) {
+          this.spawnEnemy('HostileJet', playerPos, spawnDist, (i - 3) * 160);
+        }
+      } else {
+        // Ace Boss + 6 Escort Jets
+        this.spawnEnemy('HostileAce', playerPos, spawnDist - 200, 0, 560);
+        for (let i = 0; i < 6; i++) {
+          this.spawnEnemy('HostileJet', playerPos, spawnDist, (i - 2.5) * 180);
+        }
+      }
+    } else if (isJapan) {
       if (waveNum === 1) {
         // 4x Zero
         for (let i = 0; i < 4; i++) {
@@ -615,29 +829,37 @@ class AirCombatGame {
   }
 
   spawnWarships(playerPos) {
+    const isPoland = this.selectedMap === 'poland';
     const isJapan = this.selectedMap === 'japan';
     const activeShips = this.ships.filter(s => !s.isDead);
     const toSpawn = Math.max(0, 3 - activeShips.length);
     for (let i = 0; i < toSpawn; i++) {
-      const shipMesh = isJapan ? PlaneModels.createJapaneseWarship() : PlaneModels.createKriegsmarineShip();
+      const shipMesh = isPoland
+        ? PlaneModels.createModernWarship()
+        : (isJapan ? PlaneModels.createJapaneseWarship() : PlaneModels.createKriegsmarineShip());
       const sx = playerPos.x + (i - 1) * 260 + (Math.random() - 0.5) * 100;
       const sz = playerPos.z + 650 + i * 280;
       shipMesh.position.set(sx, 0, sz);
       this.scene.add(shipMesh);
       this.ships.push({
         mesh: shipMesh,
-        type: isJapan ? 'IJN' : 'Kriegsmarine',
-        health: isJapan ? 260 : 220,
-        maxHealth: isJapan ? 260 : 220,
+        type: isPoland ? 'ModernCorvette' : (isJapan ? 'IJN' : 'Kriegsmarine'),
+        health: isPoland ? 320 : (isJapan ? 260 : 220),
+        maxHealth: isPoland ? 320 : (isJapan ? 260 : 220),
         isDead: false,
-        speed: isJapan ? 16 : 14
+        speed: isPoland ? 18 : (isJapan ? 16 : 14)
       });
     }
   }
 
   spawnEnemy(type, playerPos, baseDist, offsetX = 0, customY = null) {
     let mesh;
-    if (type === 'Zero' || type === 'ZeroAce') {
+    if (type === 'HostileJet' || type === 'HostileAce') {
+      mesh = PlaneModels.createModernFighter();
+      if (type === 'HostileAce') {
+        mesh.scale.set(1.15, 1.15, 1.15);
+      }
+    } else if (type === 'Zero' || type === 'ZeroAce') {
       mesh = PlaneModels.createZero();
       if (type === 'ZeroAce') {
         mesh.scale.set(1.12, 1.12, 1.12);
@@ -750,7 +972,8 @@ class AirCombatGame {
 
       this.fireTimer -= dt;
       if (this.fireTimer <= 0) {
-        this.fireTimer = 0.085; // ~700 rounds/min
+        const isJet = ['F16', 'F18', 'F22', 'F35'].includes(this.player.type);
+        this.fireTimer = isJet ? 0.055 : 0.085; // Faster rotary cannon burst for modern fighters!
 
         // Wing guns converge toward aim point 280m ahead along nose vector
         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
@@ -986,6 +1209,68 @@ class AirCombatGame {
         bombs.splice(i, 1);
       }
     }
+
+    // Handle guided homing missiles (AIM-9 / AIM-120)
+    const missiles = this.particles.missiles;
+    for (let i = missiles.length - 1; i >= 0; i--) {
+      const m = missiles[i];
+      const mPos = m.mesh.position;
+      let hit = false;
+
+      // Check hits against enemy aircraft (proximity fuze < 8.5m)
+      for (let j = this.enemies.length - 1; j >= 0; j--) {
+        const enemy = this.enemies[j];
+        if (enemy.isDead || !enemy.mesh) continue;
+
+        if (mPos.distanceTo(enemy.mesh.position) < 8.5) {
+          this.ui.showHitMarker();
+          this.particles.createExplosion(mPos, 2.2, true);
+          window.soundSystem.playExplosion(true);
+
+          const killed = enemy.takeDamage(m.damage, mPos, this.particles, window.soundSystem);
+          if (killed) {
+            this.kills++;
+            const pts = (enemy.type === 'HostileAce' || enemy.type === 'Ace' || enemy.type === 'ZeroAce') ? 1400 : 400;
+            this.score += pts;
+            this.ui.showKillAnnouncement(`🚀 BEZPOŚREDNIE TRAFIENIE RAKIETĄ! ZNISZCZONO: ${enemy.type} (+${pts} PKT)`);
+            this.checkWaveCleared();
+          }
+
+          this.scene.remove(m.mesh);
+          missiles.splice(i, 1);
+          hit = true;
+          break;
+        }
+      }
+
+      if (hit) continue;
+
+      // Check hits against warships (proximity fuze < 24m)
+      for (let s = 0; s < this.ships.length; s++) {
+        const ship = this.ships[s];
+        if (ship.isDead) continue;
+
+        if (mPos.distanceTo(ship.mesh.position) < 24.0) {
+          ship.health -= m.damage;
+          this.ui.showHitMarker();
+          this.particles.createExplosion(mPos, 2.5, true);
+          window.soundSystem.playExplosion(true);
+
+          if (ship.health <= 0) {
+            ship.isDead = true;
+            this.scene.remove(ship.mesh);
+            this.score += 850;
+            this.kills++;
+            this.ui.showKillAnnouncement('💥 OKRĘT BOJOWY ZNISZCZONY RAKIETĄ SAMONAPROWADZAJĄCĄ! (+850 PKT)');
+          }
+
+          this.scene.remove(m.mesh);
+          missiles.splice(i, 1);
+          hit = true;
+          break;
+        }
+      }
+    }
   }
 
   // Automatic defensive turret fire when flying B-17G or B-29 Superfortress
@@ -1033,7 +1318,7 @@ class AirCombatGame {
     }
   }
 
-  updateCamera() {
+  updateCamera(dt = 0.016) {
     if (!this.player || !this.player.mesh) return;
 
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.player.mesh.quaternion);
@@ -1057,15 +1342,18 @@ class AirCombatGame {
       );
       const camQuat = new THREE.Quaternion().setFromEuler(camEuler);
 
-      const baseOffset = this.player.mesh.userData.chaseOffset || new THREE.Vector3(0, 2.3, -9.2);
+      const baseOffset = this.player.mesh.userData.chaseOffset || new THREE.Vector3(0, 2.8, -10.5);
       const offset = baseOffset.clone().applyQuaternion(camQuat);
       const targetCamPos = this.player.mesh.position.clone().add(offset);
 
-      this.camera.position.lerp(targetCamPos, 0.35);
+      const lerpSpeed = dt >= 1.0 ? 1.0 : Math.min(1.0, 18.0 * dt);
+      this.camera.position.lerp(targetCamPos, lerpSpeed);
       this.camera.up.set(0, 1, 0).applyQuaternion(camQuat);
 
-      // Look directly at the gun convergence point ahead of the nose
-      const targetLook = this.player.mesh.position.clone().addScaledVector(forward, 280);
+      // Elevate targetLook slightly above the nose line proportionally to camera height
+      // so the aircraft's tail / canopy doesn't occlude the HUD crosshair or targets ahead
+      const upOffset = new THREE.Vector3(0, baseOffset.y * 0.35, 0).applyQuaternion(camQuat);
+      const targetLook = this.player.mesh.position.clone().add(upOffset).addScaledVector(forward, 260);
       this.camera.lookAt(targetLook);
     }
   }
@@ -1099,6 +1387,41 @@ class AirCombatGame {
         this.bombReloadTimer = 0;
       }
 
+      // Modern Jet Missile Radar Tracking, Lock-on & Auto-reload
+      const isJet = ['F16', 'F18', 'F22', 'F35'].includes(this.player.type);
+      if (isJet) {
+        if (this.missilesAmmo < this.maxMissiles) {
+          this.missileReloadTimer += dt;
+          if (this.missileReloadTimer >= 4.8) {
+            this.missileReloadTimer = 0;
+            this.missilesAmmo++;
+          }
+        }
+
+        const candidate = this.findMissileTarget();
+        if (candidate) {
+          if (this.lockedTarget === candidate) {
+            this.lockTimer += dt;
+            if (this.lockTimer >= 0.35 && !this.isMissileLocked) {
+              this.isMissileLocked = true;
+              window.soundSystem.playMissileLock();
+            }
+          } else {
+            this.lockedTarget = candidate;
+            this.isMissileLocked = false;
+            this.lockTimer = 0;
+          }
+        } else {
+          this.lockedTarget = null;
+          this.isMissileLocked = false;
+          this.lockTimer = 0;
+        }
+      } else {
+        this.lockedTarget = null;
+        this.isMissileLocked = false;
+        this.lockTimer = 0;
+      }
+
       // Update 3D bomb sight indicator on the water
       this.particles.updateBombSight(
         this.player.mesh.position,
@@ -1108,7 +1431,7 @@ class AirCombatGame {
       this.handlePlayerFiring(dt);
       this.handleB17Turrets(dt);
 
-      // Spin player propeller(s)
+      // Spin player propeller(s) or pulse afterburners
       const propSpeed = (30 + this.controls.throttle * 40) * dt;
       if (this.player.mesh.userData.propeller) {
         this.player.mesh.userData.propeller.rotation.z += propSpeed;
@@ -1116,6 +1439,14 @@ class AirCombatGame {
       if (this.player.mesh.userData.propellers) {
         this.player.mesh.userData.propellers.forEach(p => {
           p.rotation.z += propSpeed;
+        });
+      }
+      if (this.player.mesh.userData.afterburners) {
+        const boostActive = this.controls.isBoosting;
+        const abScaleZ = 0.6 + this.controls.throttle * (boostActive ? 2.2 : 1.1) + Math.random() * 0.15;
+        const abScaleW = 0.8 + this.controls.throttle * 0.4;
+        this.player.mesh.userData.afterburners.forEach(ab => {
+          ab.scale.set(abScaleW, abScaleW, abScaleZ);
         });
       }
 
@@ -1158,7 +1489,8 @@ class AirCombatGame {
       // 7. Update HUD & UI
       const isNuke = this.player.type === 'B29';
       const bombsText = isNuke ? `☢️ ${this.bombsAmmo} / ${this.maxBombs}` : `${this.bombsAmmo} / ${this.maxBombs}`;
-      const theaterText = this.selectedMap === 'japan' ? 'JAPONIA 1945' : 'ANGLIA 1940';
+      const missilesText = isJet ? `🚀 ${this.missilesAmmo}/${this.maxMissiles}` : '';
+      const theaterText = this.selectedMap === 'poland' ? 'POLSKA 2026' : (this.selectedMap === 'japan' ? 'JAPONIA 1945' : 'ANGLIA 1940');
       this.ui.update(
         this.player,
         this.controls,
@@ -1171,11 +1503,14 @@ class AirCombatGame {
         this.gunHeat,
         bombsText,
         this.ships,
-        theaterText
+        theaterText,
+        this.lockedTarget,
+        this.isMissileLocked,
+        missilesText
       );
 
       // 8. Update Camera
-      this.updateCamera();
+      this.updateCamera(dt);
 
       // 9. Camera Screen Shake (from Atomic Detonation)
       if (this.nukeShakeTimer > 0) {

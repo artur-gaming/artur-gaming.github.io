@@ -365,6 +365,70 @@ class SoundSystem {
     osc.stop(now + 1.2);
   }
 
+  playMissileLaunch() {
+    if (!this.initialized || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    // Rocket booster motor roar (filtered noise burst)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.45);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.22));
+    }
+    const noiseSource = this.ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1400, now);
+    filter.frequency.exponentialRampToValueAtTime(450, now + 0.4);
+    filter.Q.value = 1.8;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.45, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.42);
+
+    noiseSource.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    noiseSource.start(now);
+
+    // Rocket whoosh tone
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+
+    oscGain.gain.setValueAtTime(0.18, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  }
+
+  playMissileLock() {
+    if (!this.initialized || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    // High-pitched lock-on tone beep
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1350, now);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.09);
+  }
+
   playUpgradeSound() {
     if (!this.initialized || this.isMuted) return;
     const now = this.ctx.currentTime;

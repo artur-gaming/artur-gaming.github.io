@@ -6,10 +6,10 @@ class PlaneEntity {
     this.type = type; // 'Bf109', 'Ju87', 'Ace', 'Bomber'
     this.isEnemy = isEnemy;
 
-    this.maxHealth = type === 'Bomber' ? 650 : (type === 'Ace' ? 300 : (type === 'ZeroAce' ? 280 : (type === 'Ju87' ? 160 : (type === 'Zero' ? 95 : 100))));
+    this.maxHealth = type === 'Bomber' ? 650 : (type === 'HostileAce' ? 380 : (type === 'HostileJet' ? 220 : (type === 'Ace' ? 300 : (type === 'ZeroAce' ? 280 : (type === 'Ju87' ? 160 : (type === 'Zero' ? 95 : 100))))));
     this.health = this.maxHealth;
-    this.speed = type === 'Bomber' ? 45 : (type === 'Ju87' ? 60 : (type === 'Ace' ? 88 : (type === 'ZeroAce' ? 92 : (type === 'Zero' ? 84 : 80))));
-    this.turnSpeed = type === 'Bomber' ? 0.4 : (type === 'Ju87' ? 0.9 : (type === 'Ace' ? 2.4 : (type === 'ZeroAce' ? 2.7 : (type === 'Zero' ? 2.3 : 1.8))));
+    this.speed = type === 'Bomber' ? 45 : (type === 'HostileAce' ? 120 : (type === 'HostileJet' ? 105 : (type === 'Ju87' ? 60 : (type === 'Ace' ? 88 : (type === 'ZeroAce' ? 92 : (type === 'Zero' ? 84 : 80))))));
+    this.turnSpeed = type === 'Bomber' ? 0.4 : (type === 'HostileAce' ? 2.8 : (type === 'HostileJet' ? 2.2 : (type === 'Ju87' ? 0.9 : (type === 'Ace' ? 2.4 : (type === 'ZeroAce' ? 2.7 : (type === 'Zero' ? 2.3 : 1.8))))));
 
     this.velocity = new THREE.Vector3();
     this.target = null;
@@ -17,7 +17,7 @@ class PlaneEntity {
     this.stateTimer = 0;
 
     this.fireCooldown = 0;
-    this.fireInterval = (type === 'Ace' || type === 'ZeroAce') ? 0.12 : (type === 'Ju87' ? 0.25 : (type === 'Zero' ? 0.16 : 0.18));
+    this.fireInterval = (type === 'HostileAce') ? 0.08 : ((type === 'HostileJet') ? 0.10 : ((type === 'Ace' || type === 'ZeroAce') ? 0.12 : (type === 'Ju87' ? 0.25 : (type === 'Zero' ? 0.16 : 0.18))));
     this.burstTimer = 0;
     this.isShooting = false;
 
@@ -54,7 +54,7 @@ class PlaneEntity {
 
     // Massive explosion
     particleSys.createExplosion(this.mesh.position, this.type === 'Bomber' ? 2.2 : 1.2);
-    soundSys.playExplosion(this.type === 'Bomber' || this.type === 'Ace' || this.type === 'ZeroAce');
+    soundSys.playExplosion(this.type === 'Bomber' || this.type === 'Ace' || this.type === 'ZeroAce' || this.type === 'HostileAce');
   }
 
   update(dt, player, bombers, particleSys, soundSys) {
